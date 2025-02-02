@@ -1,6 +1,8 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from components.config import ProjectConfig
+from components.data_writer import DataWriter
+
 
 
 class DataProcessor:
@@ -115,3 +117,18 @@ class DataProcessor:
             random_state=self.cfg.random_state
         )
         return self.train, self.test
+    
+    def save_train_test(self, writer: DataWriter) -> None:
+        """
+        Save training and test datasets to Databricks tables.
+
+        Parameters
+        ----------
+        writer : DataWriter
+            DataWriter object for saving DataFrames
+        """
+        try:
+            writer.save_to_catalog(self.train, "train_data", "overwrite")
+            writer.save_to_catalog(self.test, "test_data", "overwrite")
+        except Exception as e:
+            print(f"Error saving data: {e}")

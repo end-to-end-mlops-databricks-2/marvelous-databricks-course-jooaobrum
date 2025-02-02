@@ -93,3 +93,8 @@ def test_split_data(processor):
     
     # Check split sizes
     assert len(test) < len(train)
+
+
+def test_save_train_test(processor, sample_data):
+    """Test saving train and test data."""
+    pass

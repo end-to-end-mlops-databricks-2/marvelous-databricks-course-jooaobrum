@@ -1,8 +1,8 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
+
 from components.config import ProjectConfig
 from components.data_writer import DataWriter
-
 
 
 class DataProcessor:
@@ -57,12 +57,12 @@ class DataProcessor:
         int
             0 for 'Not_Canceled', 1 for 'Canceled'
         """
-        return 0 if row[self.cfg.target] == 'Not_Canceled' else 1
+        return 0 if row[self.cfg.target] == "Not_Canceled" else 1
 
     def _treat_num_features(self) -> None:
         """
         Convert numeric features to proper numeric type.
-        
+
         Modifies the DataFrame in place by converting all features specified
         in cfg.num_features to numeric type.
         """
@@ -72,7 +72,7 @@ class DataProcessor:
     def _treat_cat_features(self) -> None:
         """
         Convert categorical features to string type.
-        
+
         Modifies the DataFrame in place by converting all features specified
         in cfg.cat_features to string type.
         """
@@ -112,12 +112,10 @@ class DataProcessor:
             A tuple containing (training_data, test_data)
         """
         self.train, self.test = train_test_split(
-            self.data, 
-            test_size=self.cfg.test_size,
-            random_state=self.cfg.random_state
+            self.data, test_size=self.cfg.test_size, random_state=self.cfg.random_state
         )
         return self.train, self.test
-    
+
     def save_train_test(self, writer: DataWriter) -> None:
         """
         Save training and test datasets to Databricks tables.

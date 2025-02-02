@@ -2,11 +2,12 @@
 
 # COMMAND ----------
 # Import packages
-from components.config import ProjectConfig
-from components.data_reader import DataReader
-from components.data_processor import DataProcessor
-from components.data_writer import DataWriter
 import yaml
+
+from components.config import ProjectConfig
+from components.data_processor import DataProcessor
+from components.data_reader import DataReader
+from components.data_writer import DataWriter
 
 # COMMAND ----------
 # Load configuration
@@ -29,7 +30,7 @@ data_processor.pre_processing()
 
 # COMMAND ----------
 # Split the data
-train, test  = data_processor.split_data()
+train, test = data_processor.split_data()
 print("Training set shape:", train.shape)
 print("Test set shape:", test.shape)
 

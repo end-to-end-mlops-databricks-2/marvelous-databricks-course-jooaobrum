@@ -1,4 +1,5 @@
-from typing import Any, Dict, List
+from typing import List
+
 import yaml
 from pydantic import BaseModel
 
@@ -12,7 +13,7 @@ class ProjectConfig(BaseModel):
     target: str
     catalog_name: str
     schema_name: str
-    
+
     @classmethod
     def from_yaml(cls, config_path: str):
         """Load configuration from a YAML file."""

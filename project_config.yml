@@ -1,43 +1,28 @@
 input_data : '/Volumes/uc-dev/data/samples/hotel_reservations.csv'
 
-parameters:
-  learning_rate: 0.01
-  n_estimators: 1000
-  max_depth: 6
-
 test_size: 0.2
 random_state: 42
 
 num_features:
-  - LotFrontage 
-  - LotArea
-  - OverallQual
-  - OverallCond
-  - YearBuilt
-  - YearRemodAdd
-  - MasVnrArea
-  - TotalBsmtSF
-  - GrLivArea
-  - GarageCars
+  - no_of_adults
+  - no_of_children
+  - no_of_weekend_nights
+  - no_of_week_nights
+  - required_car_parking_space
+  - lead_time
+  - arrival_year
+  - arrival_month
+  - arrival_date
+  - repeated_guest
+  - no_of_previous_cancellations
+  - no_of_previous_bookings_not_canceled
+  - avg_price_per_room
+  - no_of_special_requests
+
 
 cat_features:
-  - MSZoning
-  - Street
-  - Alley
-  - LotShape
-  - LandContour
-  - Neighborhood
-  - Condition1
-  - BldgType
-  - HouseStyle
-  - RoofStyle
-  - Exterior1st
-  - Exterior2nd
-  - MasVnrType
-  - Foundation
-  - Heating
-  - CentralAir
-  - SaleType
-  - SaleCondition
+  - type_of_meal_plan
+  - room_type_reserved
+  - market_segment_type
 
-target: SalePrice
+target: booking_status

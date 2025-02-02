@@ -37,6 +37,8 @@ include = ["components*"]
 
 [tool.ruff]
 line-length = 120
+
+[tool.ruff.lint]
 select = [
     "F",  # pyflakes rules
     "E",  # pycodestyle error rules
@@ -49,4 +51,4 @@ ignore = [
 ]
 
 [tool.ruff.format]
-indent-style = "space"
+indent-style =  "space"

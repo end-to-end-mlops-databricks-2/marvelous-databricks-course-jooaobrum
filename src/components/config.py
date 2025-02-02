@@ -1,5 +1,4 @@
 from typing import Any, Dict, List
-
 import yaml
 from pydantic import BaseModel
 
@@ -11,7 +10,6 @@ class ProjectConfig(BaseModel):
     num_features: List[str]
     cat_features: List[str]
     target: str
-    parameters: Dict[str, Any]  # Dictionary to hold model-related parameters
     
     @classmethod
     def from_yaml(cls, config_path: str):

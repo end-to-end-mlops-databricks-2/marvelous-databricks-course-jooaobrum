@@ -19,10 +19,12 @@ num_features:
   - avg_price_per_room
   - no_of_special_requests
 
-
 cat_features:
   - type_of_meal_plan
   - room_type_reserved
   - market_segment_type
 
 target: booking_status
+
+catalog_name: uc_dev
+schema_name: hotel_reservation

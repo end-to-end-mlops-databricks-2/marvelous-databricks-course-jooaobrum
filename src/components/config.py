@@ -10,6 +10,8 @@ class ProjectConfig(BaseModel):
     num_features: List[str]
     cat_features: List[str]
     target: str
+    catalog_name: str
+    schema_name: str
     
     @classmethod
     def from_yaml(cls, config_path: str):

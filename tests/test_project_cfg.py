@@ -28,6 +28,8 @@ def test_yaml_file_valid():
     assert isinstance(config.cat_features, list)
     assert all(isinstance(feat, str) for feat in config.cat_features)
     assert isinstance(config.target, str)
+    assert isinstance(config.catalog_name, str)
+    assert isinstance(config.schema_name, str)
 
 
 

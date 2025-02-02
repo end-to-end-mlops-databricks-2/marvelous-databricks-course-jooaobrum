@@ -6,6 +6,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+data/*
+
 # C extensions
 *.so
 
@@ -95,3 +97,5 @@ dmypy.json
 # VS code configuration
 .vscode
 .history
+
+.databricks

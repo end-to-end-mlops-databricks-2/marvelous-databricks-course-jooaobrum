@@ -5,6 +5,9 @@ parameters:
   n_estimators: 1000
   max_depth: 6
 
+test_size: 0.2
+random_state: 42
+
 num_features:
   - LotFrontage 
   - LotArea

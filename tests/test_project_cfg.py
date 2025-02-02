@@ -21,6 +21,8 @@ def test_yaml_file_valid():
         assert False, f"Error loading {config_path}: {e}"
 
     assert isinstance(config.input_data, str)
+    assert isinstance(config.test_size, float)
+    assert isinstance(config.random_state, int)
     assert isinstance(config.num_features, list)
     assert all(isinstance(feat, str) for feat in config.num_features)
     assert isinstance(config.cat_features, list)

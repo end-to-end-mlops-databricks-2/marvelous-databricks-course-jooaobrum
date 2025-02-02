@@ -6,6 +6,8 @@ from pydantic import BaseModel
 
 class ProjectConfig(BaseModel):
     input_data: str
+    test_size: float
+    random_state: int
     num_features: List[str]
     cat_features: List[str]
     target: str

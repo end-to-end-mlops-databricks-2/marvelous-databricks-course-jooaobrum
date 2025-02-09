@@ -1,48 +1,53 @@
-import mlflow
 from typing import List, Union
+
+import mlflow
+import numpy as np
+import pandas as pd
+from lightgbm import LGBMRegressor
+from loguru import logger
 from mlflow.models import infer_signature
 from mlflow.utils.environment import _mlflow_conda_env
-import pandas as pd
-import numpy as np
 from pyspark.sql import SparkSession
-from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.pipeline import Pipeline
-from lightgbm import LGBMRegressor
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
-from loguru import logger
+from sklearn.preprocessing import OneHotEncoder
 
 from components.config import ProjectConfig, Tags
+
 
 class ModelWrapper(mlflow.pyfunc.PythonModel):
     """
     Wrapper class to make the trained model compatible with MLflow.
     """
+
     def __init__(self, model):
         self.model = model
 
     def predict(self, context, model_input: Union[pd.DataFrame, np.ndarray]) -> dict:
         """
         Generate probability predictions for the input data.
-        
+
         Args:
             context: MLflow context (not used in this implementation).
             model_input (pd.DataFrame | np.ndarray): Input data.
-        
+
         Returns:
             dict: Dictionary containing predicted probabilities.
         """
         probas = self.model.predict_proba(model_input)[:, 1]
         return {"probability": probas.tolist()}
-    
+
+
 class CustomModel:
     """
     Custom machine learning model for training, evaluating, and logging a LightGBM regressor using MLflow.
     """
+
     def __init__(self, config: ProjectConfig, tags: Tags, spark: SparkSession, code_paths: List[str]):
         """
         Initialize the model with project configuration.
-        
+
         Args:
             config (ProjectConfig): Project configuration object.
             tags (Tags): Tags for MLflow experiment tracking.
@@ -51,7 +56,7 @@ class CustomModel:
         """
         self.config = config
         self.spark = spark
-        
+
         # Extract settings from config
         self.num_features = config.num_features
         self.cat_features = config.cat_features
@@ -67,8 +72,8 @@ class CustomModel:
         """
         Load training and test datasets from Databricks tables.
         """
-        logger.info('Loading data from Databricks table...')
-        
+        logger.info("Loading data from Databricks table...")
+
         self.train_set_spark = self.spark.table(f"{self.catalog_name}.{self.schema_name}.train_data")
         self.train_set = self.train_set_spark.toPandas()
         self.test_set = self.spark.table(f"{self.catalog_name}.{self.schema_name}.test_data").toPandas()
@@ -78,34 +83,32 @@ class CustomModel:
         self.y_train = self.train_set[self.target]
         self.X_test = self.test_set[self.num_features + self.cat_features]
         self.y_test = self.test_set[self.target]
-        
-        logger.info('Data loaded successfully.')
+
+        logger.info("Data loaded successfully.")
 
     def prepare_features(self):
         """
         Define preprocessing pipeline including one-hot encoding for categorical features.
         """
-        logger.info('Defining Preprocessing Pipeline...')
-        
+        logger.info("Defining Preprocessing Pipeline...")
+
         self.preprocessor = ColumnTransformer(
-            transformers=[('cat', OneHotEncoder(handle_unknown='ignore'), self.cat_features)],
-            remainder='passthrough'
+            transformers=[("cat", OneHotEncoder(handle_unknown="ignore"), self.cat_features)], remainder="passthrough"
         )
 
-        self.pipeline = Pipeline(steps=[
-            ('preprocessor', self.preprocessor),
-            ('regressor', LGBMRegressor(**self.parameters))
-        ])
-        
+        self.pipeline = Pipeline(
+            steps=[("preprocessor", self.preprocessor), ("regressor", LGBMRegressor(**self.parameters))]
+        )
+
         logger.info("Preprocessing pipeline defined.")
-        
+
     def train_model(self):
         """
         Train the model using the defined preprocessing pipeline.
         """
-        logger.info('Training model...')
+        logger.info("Training model...")
         self.pipeline.fit(self.X_train, self.y_train)
-        logger.info('Model trained successfully.')
+        logger.info("Model trained successfully.")
 
     def log_model_experiment(self):
         """
@@ -114,7 +117,7 @@ class CustomModel:
         mlflow.set_experiment(self.experiment_name)
         additional_pip_deps = ["pyspark==3.5.0"]
         for package in self.code_paths:
-            whl_name = package.split('/')[-1]
+            whl_name = package.split("/")[-1]
             additional_pip_deps.append(f"code/{whl_name}")
 
         with mlflow.start_run(tags=self.tags) as run:
@@ -131,20 +134,20 @@ class CustomModel:
                 "accuracy": accuracy_score(self.y_test, y_pred),
             }
 
-            logger.info('Logging model...')
+            logger.info("Logging model...")
             for metric, value in metrics.items():
-                logger.info(f'{metric.capitalize()}: {value}')
+                logger.info(f"{metric.capitalize()}: {value}")
                 mlflow.log_metric(metric, value)
 
             mlflow.log_param("model_type", "LightGBM with preprocessing")
             mlflow.log_params(self.parameters)
 
             # Log model signature
-            signature = infer_signature(model_input=self.X_train, model_output={'probability': 0.351388})
+            signature = infer_signature(model_input=self.X_train, model_output={"probability": 0.351388})
             dataset = mlflow.data.from_spark(
                 self.train_set_spark,
                 table_name=f"{self.catalog_name}.{self.schema_name}.train_data",
-                version=self.data_version
+                version=self.data_version,
             )
             mlflow.log_input(dataset, context="training")
 
@@ -155,7 +158,7 @@ class CustomModel:
                 artifact_path="pyfunc-lgbm-hotel-reservations",
                 code_paths=self.code_paths,
                 conda_env=conda_env,
-                signature=signature
+                signature=signature,
             )
 
-        logger.info('Model logged successfully.')
+        logger.info("Model logged successfully.")

@@ -1,7 +1,6 @@
 import os
 
 from pydantic import ValidationError
-
 from components.config import ProjectConfig
 
 
@@ -28,3 +27,6 @@ def test_yaml_file_valid():
     assert isinstance(config.target, str)
     assert isinstance(config.catalog_name, str)
     assert isinstance(config.schema_name, str)
+    assert isinstance(config.experiment_name, str)
+    assert isinstance(config.parameters, dict)
+

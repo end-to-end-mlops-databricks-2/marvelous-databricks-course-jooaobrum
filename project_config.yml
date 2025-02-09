@@ -1,4 +1,12 @@
 input_data : '/Volumes/uc-dev/data/samples/hotel_reservations.csv'
+experiment_name: /Shared/hotel-reservations
+
+
+parameters:
+  random_state: 42
+  n_estimators: 300
+  max_depth: 6
+  learning_rate: 0.01
 
 test_size: 0.2
 random_state: 42

@@ -164,15 +164,15 @@ class FeatureLookUpModel:
 
         self.training_set = self.fe.create_training_set(
             df=self.train_set,
-            label='booking_status',
+            label=self.target,
             feature_lookups=[
                 FeatureLookup(
                     table_name=self.feature_table_name,
-                    feature_names=['no_of_adults', 'no_of_children','no_of_weekend_nights'],
+                    feature_names=self.cat_features + self.num_features,
                     lookup_key="Booking_ID",
                 ),
             ],
-            #exclude_columns=["update_timestamp_utc"],
+            exclude_columns=["update_timestamp_utc"],
         )
 
         self.training_df = self.training_set.load_df().toPandas()

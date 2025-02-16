@@ -59,7 +59,7 @@ class FeatureLookUpModel:
         self.schema_name = self.config.schema_name
 
         # Define table names and function name
-        self.feature_table_name = f"{self.catalog_name}.{self.schema_name}.hotel_reservations_features"
+        self.feature_table_name = f"{self.catalog_name}.{self.schema_name}.hotel_reservation_features"
 
         # MLflow configuration
         self.experiment_name = self.config.experiment_name
@@ -226,7 +226,7 @@ class FeatureLookUpModel:
             # Log model signature
             signature = infer_signature(model_input=self.X_train, model_output={"probability": 0.351388})
             dataset = mlflow.data.from_spark(
-                self.train_set_spark,
+                self.training_set,
                 table_name=f"{self.catalog_name}.{self.schema_name}.train_data",
                 version=self.data_version,
             )
@@ -235,7 +235,7 @@ class FeatureLookUpModel:
     def register_model(self):
         registered_model = mlflow.register_model(
             model_uri=f"runs:/{self.run_id}/lightgbm-pipeline-model-fe",
-            name=f"{self.catalog_name}.{self.schema_name}.hotel_reservations_model_fe",
+            name=f"{self.catalog_name}.{self.schema_name}.hotel_reservation_model_fe",
             tags=self.tags,
         )
 
@@ -244,7 +244,7 @@ class FeatureLookUpModel:
 
         client = mlflow.MlflowClient()
         client.set_registered_model_alias(
-            name=f"{self.catalog_name}.{self.schema_name}.hotel_reservations_model_fe",
+            name=f"{self.catalog_name}.{self.schema_name}.hotel_reservation_model_fe",
             alias="latest-model",
             version=latest_version,
         )

@@ -225,12 +225,15 @@ class FeatureLookUpModel:
             
             # Log model signature
             signature = infer_signature(model_input=self.X_train, model_output={"probability": 0.351388})
-            dataset = mlflow.data.from_spark(
-                self.training_set,
-                table_name=f"{self.catalog_name}.{self.schema_name}.train_data",
-                version=self.data_version,
+
+            self.fe.log_model(
+                model=self.pipeline,
+                flavor=mlflow.sklearn,
+                artifact_path="lightgbm-pipeline-model-fe",
+                training_set=self.training_set,
+                signature=signature,
             )
-            mlflow.log_input(dataset, context="training")
+         
 
     def register_model(self):
         registered_model = mlflow.register_model(

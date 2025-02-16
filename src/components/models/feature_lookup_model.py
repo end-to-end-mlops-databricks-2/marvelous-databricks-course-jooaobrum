@@ -236,7 +236,7 @@ class FeatureLookUpModel:
 
     def register_model(self):
         """
-        Register the model in the UC
+        Register the model in UC.
         """
         logger.info("Registering model...")
         registered_model = mlflow.register_model(

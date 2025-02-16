@@ -151,18 +151,7 @@ class FeatureLookUpModel:
         self.train_set = self.spark.table(f"{self.catalog_name}.{self.schema_name}.train_data").select(
             "Booking_ID", "booking_status"
         )
-        self.test_set = self.spark.table(f"{self.catalog_name}.{self.schema_name}.test_data").select(
-            "Booking_ID", "booking_status"
-        )
-
-        self.train_set = self.train_set.dropna(subset=["Booking_ID"])
-        self.test_set = self.test_set.dropna(subset=["Booking_ID"])
-
-        self.train_set = self.train_set.dropna(subset=["booking_status"])
-        self.test_set = self.test_set.dropna(subset=["booking_status"])
-
-
-
+        self.test_set = self.spark.table(f"{self.catalog_name}.{self.schema_name}.test_data").toPandas()
 
         logger.info("Data successfully loaded.")
 
@@ -187,6 +176,11 @@ class FeatureLookUpModel:
         )
 
         self.training_df = self.training_set.load_df().toPandas()
+        self.X_train = self.training_df[self.num_features + self.cat_features]
+        self.y_train = self.training_df[self.target]
+        self.X_test = self.test_set[self.num_features + self.cat_features]
+        self.y_test = self.test_set[self.target]
+
 
         logger.info("Feature engineering completed.")
 

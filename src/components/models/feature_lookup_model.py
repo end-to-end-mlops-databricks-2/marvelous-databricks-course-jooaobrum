@@ -159,9 +159,7 @@ class FeatureLookUpModel:
         """
         Perform feature engineering by linking data with feature tables.
         """
-
-
-
+        logger.info("Starting feature engineering...")
         self.training_set = self.fe.create_training_set(
             df=self.train_set,
             label=self.target,
@@ -233,9 +231,14 @@ class FeatureLookUpModel:
                 training_set=self.training_set,
                 signature=signature,
             )
+        logger.info("Model training and experiment completed.")
          
 
     def register_model(self):
+        """
+        Register the model in the UC
+        """
+        logger.info("Registering model...")
         registered_model = mlflow.register_model(
             model_uri=f"runs:/{self.run_id}/lightgbm-pipeline-model-fe",
             name=f"{self.catalog_name}.{self.schema_name}.hotel_reservation_model_fe",
@@ -251,12 +254,15 @@ class FeatureLookUpModel:
             alias="latest-model",
             version=latest_version,
         )
+        logger.info("Model registered successfully.")
 
     def load_latest_model_and_predict(self, X):
         """
         Load the trained model from MLflow using Feature Engineering Client and make predictions.
         """
+        logger.info("Loading model and making predictions...")
         model_uri = f"models:/{self.catalog_name}.{self.schema_name}.hotel_reservations_model_fe@latest-model"
 
         predictions = self.fe.score_batch(model_uri=model_uri, df=X)
+        logger.info("Predictions completed.")
         return predictions

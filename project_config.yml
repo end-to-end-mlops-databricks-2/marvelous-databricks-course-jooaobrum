@@ -41,4 +41,3 @@ target: booking_status
 # Catalog
 catalog_name: uc_dev
 schema_name: hotel_reservation
-

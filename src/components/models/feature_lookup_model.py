@@ -1,14 +1,13 @@
-from typing import List, Union
+from typing import Union
 
+import mlflow
 import numpy as np
 import pandas as pd
-import mlflow
 from databricks import feature_engineering
-from databricks.feature_engineering import FeatureFunction, FeatureLookup
+from databricks.feature_engineering import FeatureLookup
 from databricks.sdk import WorkspaceClient
 from lightgbm import LGBMClassifier
 from loguru import logger
-from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.models import infer_signature
 from pyspark.sql import SparkSession
 from sklearn.compose import ColumnTransformer
@@ -17,6 +16,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
 from components.config import ProjectConfig, Tags
+
 
 class ModelWrapper(mlflow.pyfunc.PythonModel):
     """
@@ -39,6 +39,7 @@ class ModelWrapper(mlflow.pyfunc.PythonModel):
         """
         probas = self.model.predict_proba(model_input)[:, 1]
         return {"probability": probas.tolist()}
+
 
 class FeatureLookUpModel:
     def __init__(self, config: ProjectConfig, tags: Tags, spark: SparkSession):
@@ -97,7 +98,7 @@ class FeatureLookUpModel:
         self.spark.sql(f"ALTER TABLE {self.feature_table_name} SET TBLPROPERTIES (delta.enableChangeDataFeed = true);")
 
         self.spark.sql(
-            f"""INSERT INTO {self.feature_table_name} 
+            f"""INSERT INTO {self.feature_table_name}
             SELECT Booking_ID,
             no_of_adults,
             no_of_children,
@@ -118,9 +119,9 @@ class FeatureLookUpModel:
             no_of_special_requests,
             update_timestamp_utc
             FROM {self.catalog_name}.{self.schema_name}.train_data"""
-            )
+        )
         self.spark.sql(
-            f"""INSERT INTO {self.feature_table_name} 
+            f"""INSERT INTO {self.feature_table_name}
             SELECT Booking_ID,
             no_of_adults,
             no_of_children,
@@ -179,7 +180,6 @@ class FeatureLookUpModel:
         self.X_test = self.test_set[self.num_features + self.cat_features]
         self.y_test = self.test_set[self.target]
 
-
         logger.info("Feature engineering completed.")
 
     def train(self):
@@ -220,7 +220,7 @@ class FeatureLookUpModel:
 
             mlflow.log_param("model_type", "LightGBM with preprocessing")
             mlflow.log_params(self.parameters)
-            
+
             # Log model signature
             signature = infer_signature(model_input=self.X_train, model_output={"probability": 0.351388})
 
@@ -232,7 +232,6 @@ class FeatureLookUpModel:
                 signature=signature,
             )
         logger.info("Model training and experiment completed.")
-         
 
     def register_model(self):
         """

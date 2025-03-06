@@ -15,7 +15,7 @@ parameters:
   max_depth: 6
   learning_rate: 0.01
 
-id_columns: 
+id_columns:
   - Booking_ID
 
 num_features:
@@ -45,15 +45,15 @@ target: booking_status
 prod:
   catalog_name: uc_prod
   schema_name: hotel_reservation
-  pipeline_id: 2e48de81-2d9a-4c9d-b18f-10064d7713df 
+  pipeline_id: 2e48de81-2d9a-4c9d-b18f-10064d7713df
 qa:
   catalog_name: uc_qa
   schema_name: hotel_reservation
-  pipeline_id: 2e48de81-2d9a-4c9d-b18f-10064d7713df 
+  pipeline_id: 2e48de81-2d9a-4c9d-b18f-10064d7713df
 dev:
   catalog_name: uc_dev
   schema_name: hotel_reservation
-  pipeline_id: 2e48de81-2d9a-4c9d-b18f-10064d7713df 
+  pipeline_id: 2e48de81-2d9a-4c9d-b18f-10064d7713df
 
 # Endpoint
 endpoint_name: hotel-reservation-model-serving-fe

@@ -1,5 +1,5 @@
-from loguru import logger
 import time
+
 import mlflow
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import (
@@ -7,6 +7,7 @@ from databricks.sdk.service.catalog import (
     OnlineTableSpecTriggeredSchedulingPolicy,
 )
 from databricks.sdk.service.serving import EndpointCoreConfigInput, ServedEntityInput
+from loguru import logger
 
 
 class FeatureLookupServing:
@@ -71,7 +72,6 @@ class FeatureLookupServing:
             )
         else:
             self.workspace.serving_endpoints.update_config(name=self.endpoint_name, served_entities=served_entities)
-
 
     def update_online_table(self, config):
         """

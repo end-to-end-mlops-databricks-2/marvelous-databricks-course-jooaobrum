@@ -1,8 +1,7 @@
-
 # Import packages
 import argparse
-import yaml
 
+import yaml
 from loguru import logger
 
 from components.config import ProjectConfig
@@ -44,7 +43,7 @@ df = data_reader.read_csv()
 
 synthetic_df = generate_synthetic_data(df, num_rows=100)
 
-synthetic_df['avg_price_per_room'] = 1.0*synthetic_df['avg_price_per_room']
+synthetic_df["avg_price_per_room"] = 1.0 * synthetic_df["avg_price_per_room"]
 logger.info("Synthetic data generated.")
 
 # Initialize Data Processor
@@ -60,4 +59,3 @@ logger.info(f"Test set shape: {test.shape}")
 
 data_writer = DataWriter(config)
 data_processor.save_train_test(data_writer)
-

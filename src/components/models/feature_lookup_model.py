@@ -265,7 +265,7 @@ class FeatureLookUpModel:
         predictions = self.fe.score_batch(model_uri=model_uri, df=X)
         logger.info("Predictions completed.")
         return predictions
-    
+
     def update_feature_table(self):
         """
         Updates the house_features table with the latest records from train and test sets.
@@ -356,8 +356,8 @@ class FeatureLookUpModel:
                 logger.info("Champion performs better. Keep the Champion.")
 
             return model_status
-        
-        except Exception as e:
+
+        except Exception:
             logger.info("No latest-model found. Register the current model.")
             model_status = True
             return model_status

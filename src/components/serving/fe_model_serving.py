@@ -1,3 +1,5 @@
+from loguru import logger
+import time
 import mlflow
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import (
@@ -33,7 +35,7 @@ class FeatureLookupServing:
     def get_latest_model_version(self):
         client = mlflow.MlflowClient()
         latest_version = client.get_model_version_by_alias(self.model_name, alias="latest-model").version
-        print(f"Latest model version: {latest_version}")
+        logger.info(f"Latest model version: {latest_version}")
         return latest_version
 
     def deploy_or_update_serving_endpoint(
@@ -69,3 +71,30 @@ class FeatureLookupServing:
             )
         else:
             self.workspace.serving_endpoints.update_config(name=self.endpoint_name, served_entities=served_entities)
+
+
+    def update_online_table(self, config):
+        """
+        Triggers a Databricks pipeline update and monitors its state.
+        """
+
+        update_response = self.workspace.pipelines.start_update(pipeline_id=config.pipeline_id, full_refresh=False)
+
+        while True:
+            update_info = self.workspace.pipelines.get_update(
+                pipeline_id=config.pipeline_id, update_id=update_response.update_id
+            )
+            state = update_info.update.state.value
+
+            if state == "COMPLETED":
+                logger.info("Pipeline update completed successfully.")
+                break
+            elif state in ["FAILED", "CANCELED"]:
+                logger.error("Pipeline update failed.")
+                raise SystemError("Online table failed to update.")
+            elif state == "WAITING_FOR_RESOURCES":
+                logger.warning("Pipeline is waiting for resources.")
+            else:
+                logger.info(f"Pipeline is in {state} state.")
+
+            time.sleep(30)

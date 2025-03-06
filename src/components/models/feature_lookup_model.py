@@ -260,8 +260,104 @@ class FeatureLookUpModel:
         Load the trained model from MLflow using Feature Engineering Client and make predictions.
         """
         logger.info("Loading model and making predictions...")
-        model_uri = f"models:/{self.catalog_name}.{self.schema_name}.hotel_reservations_model_fe@latest-model"
+        model_uri = f"models:/{self.catalog_name}.{self.schema_name}.hotel_reservation_model_fe@latest-model"
 
         predictions = self.fe.score_batch(model_uri=model_uri, df=X)
         logger.info("Predictions completed.")
         return predictions
+    
+    def update_feature_table(self):
+        """
+        Updates the house_features table with the latest records from train and test sets.
+        """
+        queries = [
+            f"""
+            WITH max_timestamp AS (
+                SELECT MAX(update_timestamp_utc) AS max_update_timestamp
+                FROM {self.config.catalog_name}.{self.config.schema_name}.train_data
+            )
+            INSERT INTO {self.feature_table_name}
+            SELECT Booking_ID,
+            no_of_adults,
+            no_of_children,
+            no_of_weekend_nights,
+            no_of_week_nights,
+            type_of_meal_plan,
+            required_car_parking_space,
+            room_type_reserved,
+            lead_time,
+            arrival_year,
+            arrival_month,
+            arrival_date,
+            market_segment_type,
+            repeated_guest,
+            no_of_previous_cancellations,
+            no_of_previous_bookings_not_canceled,
+            CAST(avg_price_per_room AS DOUBLE) AS avg_price_per_room,
+            no_of_special_requests,
+            update_timestamp_utc
+            FROM {self.config.catalog_name}.{self.config.schema_name}.train_data
+            WHERE update_timestamp_utc >= (SELECT max_update_timestamp FROM max_timestamp)
+            """,
+            f"""
+            WITH max_timestamp AS (
+                SELECT MAX(update_timestamp_utc) AS max_update_timestamp
+                FROM {self.config.catalog_name}.{self.config.schema_name}.test_data
+            )
+            INSERT INTO {self.feature_table_name}
+            SELECT Booking_ID,
+            no_of_adults,
+            no_of_children,
+            no_of_weekend_nights,
+            no_of_week_nights,
+            type_of_meal_plan,
+            required_car_parking_space,
+            room_type_reserved,
+            lead_time,
+            arrival_year,
+            arrival_month,
+            arrival_date,
+            market_segment_type,
+            repeated_guest,
+            no_of_previous_cancellations,
+            no_of_previous_bookings_not_canceled,
+            CAST(avg_price_per_room AS DOUBLE) AS avg_price_per_room,
+            no_of_special_requests,
+            update_timestamp_utc
+            FROM {self.config.catalog_name}.{self.config.schema_name}.test_data
+            WHERE update_timestamp_utc >= (SELECT max_update_timestamp FROM max_timestamp)
+            """,
+        ]
+
+        for query in queries:
+            logger.info("Executing SQL update query...")
+            self.spark.sql(query)
+        logger.info("House features table updated successfully.")
+
+    def model_improved(self, X: pd.DataFrame):
+        """
+        Evaluate model performance on the test set
+        """
+
+        features = self.num_features + self.cat_features
+
+        try:
+            preds_latest = self.load_latest_model_and_predict(X[features])
+            preds_current = self.model.predict(X[features])
+
+            latest_roc_auc = roc_auc_score(X[self.config.target], preds_latest)
+            current_roc_auc = roc_auc_score(X[self.config.target], preds_current)
+
+            model_status = False
+            if current_roc_auc > latest_roc_auc:
+                logger.info("Challenger performs better. Register the Challenger.")
+                model_status = True
+            else:
+                logger.info("Champion performs better. Keep the Champion.")
+
+            return model_status
+        
+        except Exception as e:
+            logger.info("No latest-model found. Register the current model.")
+            model_status = True
+            return model_status

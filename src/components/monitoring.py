@@ -89,9 +89,9 @@ def create_or_refresh_monitoring(config, spark, workspace):
 
 
     df_final_with_status = df_final \
-        .join(test_set.select("Booking_ID", "booking_status"), on="Id", how="left") \
+        .join(test_set.select("Booking_ID", "booking_status"), on="Booking_ID", how="left") \
         .withColumnRenamed("booking_status", "booking_status_test") \
-        .join(inference_set_skewed.select("Booking_ID", "booking_status"), on="Id", how="left") \
+        .join(inference_set_skewed.select("Booking_ID", "booking_status"), on="Booking_ID", how="left") \
         .withColumnRenamed("booking_status", "booking_status_inference") \
         .select(
             "*",  

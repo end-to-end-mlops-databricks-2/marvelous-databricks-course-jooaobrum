@@ -102,7 +102,7 @@ def create_or_refresh_monitoring(config, spark, workspace):
         .withColumn("prediction", F.col("prediction").cast("double")) \
         .dropna(subset=["status", "prediction"])
 
-    hotel_features = spark.table(f"{config.catalog_name}.{config.schema_name}.house_features")
+    hotel_features = spark.table(f"{config.catalog_name}.{config.schema_name}.hotel_reservation_features")
 
     df_final_with_features = df_final_with_status \
         .join(hotel_features, on="Booking_ID", how="left")

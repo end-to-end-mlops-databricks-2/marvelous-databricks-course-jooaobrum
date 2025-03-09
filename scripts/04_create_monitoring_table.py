@@ -19,7 +19,7 @@ from components.config import ProjectConfig
 spark = SparkSession.builder.getOrCreate()
 
 # Load configuration
-config = ProjectConfig.from_yaml(config_path="project_config.yml", env="dev")
+config = ProjectConfig.from_yaml(config_path="../project_config.yml", env="dev")
 spark = SparkSession.builder.getOrCreate()
 
 train_set = spark.table(f"{config.catalog_name}.{config.schema_name}.train_data").toPandas()
@@ -135,15 +135,15 @@ from components.config import ProjectConfig
 spark = SparkSession.builder.getOrCreate()
 
 # Load configuration
-config = ProjectConfig.from_yaml(config_path="project_config.yml", env="prd")
+config = ProjectConfig.from_yaml(config_path="../project_config.yml", env="dev")
 
 test_set = spark.table(f"{config.catalog_name}.{config.schema_name}.test_data") \
-                        .withColumn("Id", col("Id").cast("string")) \
+                        .withColumn("Booking_ID", col("Booking_ID").cast("string")) \
                         .toPandas()
 
 
 inference_data_skewed = spark.table(f"{config.catalog_name}.{config.schema_name}.inference_data_skewed") \
-                        .withColumn("Id", col("Id").cast("string")) \
+                        .withColumn("Booking_ID", col("Booking_ID").cast("string")) \
                         .toPandas()
 
 
@@ -259,6 +259,6 @@ spark = DatabricksSession.builder.getOrCreate()
 workspace = WorkspaceClient()
 
 # Load configuration
-config = ProjectConfig.from_yaml(config_path="project_config.yml", env="prd")
+config = ProjectConfig.from_yaml(config_path="../project_config.yml", env="prd")
 
 create_or_refresh_monitoring(config=config, spark=spark, workspace=workspace)

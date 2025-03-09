@@ -14,6 +14,7 @@ def create_or_refresh_monitoring(config, spark, workspace):
     inf_table = spark.sql(f"SELECT * FROM {config.catalog_name}.{config.schema_name}.`hotel_reservation_model_fe_payload`")
 
     request_schema = StructType([
+    StructField("dataframe_records", ArrayType(StructType([
     StructField("Booking_ID", StringType(), True),
     StructField("no_of_adults", IntegerType(), True),
     StructField("no_of_children", IntegerType(), True),
@@ -32,6 +33,7 @@ def create_or_refresh_monitoring(config, spark, workspace):
     StructField("type_of_meal_plan", StringType(), True),
     StructField("room_type_reserved", StringType(), True),
     StructField("market_segment_type", StringType(), True)
+    ])), True)
     ])
 
     response_schema = StructType([

@@ -42,8 +42,8 @@ data_reader = DataReader(config)
 df = data_reader.read_csv()
 
 synthetic_df = generate_synthetic_data(df, num_rows=100)
-
 synthetic_df["avg_price_per_room"] = 1.0 * synthetic_df["avg_price_per_room"]
+
 logger.info("Synthetic data generated.")
 
 # Initialize Data Processor

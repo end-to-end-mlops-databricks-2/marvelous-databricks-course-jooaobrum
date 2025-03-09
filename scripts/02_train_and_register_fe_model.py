@@ -33,12 +33,11 @@ spark = SparkSession.builder.getOrCreate()
 tags_dict = {"git_sha": args.git_sha, "branch": args.branch, "job_run_id": args.job_run_id}
 tags = Tags(**tags_dict)
 
-
 # Initialize model
 fe_model = FeatureLookUpModel(config=config, tags=tags, spark=spark)
 logger.info("Model initialized.")
 
-# fe_model.create_feature_table()
+#fe_model.create_feature_table()
 
 fe_model.update_feature_table()
 logger.info("Feature table updated.")

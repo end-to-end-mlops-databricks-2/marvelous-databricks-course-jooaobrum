@@ -3,7 +3,7 @@ from typing import List, Union
 import mlflow
 import numpy as np
 import pandas as pd
-from lightgbm import LGBMRegressor
+from lightgbm import LGBMClassifier
 from loguru import logger
 from mlflow.models import infer_signature
 from mlflow.utils.environment import _mlflow_conda_env
@@ -97,7 +97,7 @@ class CustomModel:
         )
 
         self.pipeline = Pipeline(
-            steps=[("preprocessor", self.preprocessor), ("regressor", LGBMRegressor(**self.parameters))]
+            steps=[("preprocessor", self.preprocessor), ("classifier", LGBMClassifier(**self.parameters))]
         )
 
         logger.info("Preprocessing pipeline defined.")

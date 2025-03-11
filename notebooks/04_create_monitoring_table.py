@@ -259,6 +259,6 @@ spark = DatabricksSession.builder.getOrCreate()
 workspace = WorkspaceClient()
 
 # Load configuration
-config = ProjectConfig.from_yaml(config_path="../project_config.yml", env="prd")
+config = ProjectConfig.from_yaml(config_path="../project_config.yml", env="dev")
 
 create_or_refresh_monitoring(config=config, spark=spark, workspace=workspace)

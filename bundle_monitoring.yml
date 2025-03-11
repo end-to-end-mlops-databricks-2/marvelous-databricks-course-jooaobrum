@@ -1,0 +1,24 @@
+
+resources:
+  jobs:
+    hotel-reservation-monitor-update:
+      name: hotel-reservation-monitor-update-workflow
+      schedule:
+        quartz_cron_expression: "0 0 6 ? * MON"
+        timezone_id: "Europe/Paris"
+        pause_status: ${var.schedule_pause_status}
+      tags:
+        project_name: "hotel-reservation"
+        
+      tasks:
+        - task_key: "refresh_monitor_table"
+          existing_cluster_id: 0201-105915-sb4m34sp
+          spark_python_task:
+            python_file: "scripts/04_refresh_monitoring.py"
+            parameters:
+              - "--root_path"
+              - ${workspace.root_path}
+              - "--env"
+              - ${bundle.target}
+          libraries:
+           - whl: ./dist/*.whl

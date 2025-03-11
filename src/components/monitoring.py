@@ -66,19 +66,19 @@ def create_or_refresh_monitoring(config, spark, workspace):
         F.col("record.no_of_children").alias("no_of_children"),
         F.col("record.no_of_weekend_nights").alias("no_of_weekend_nights"),
         F.col("record.no_of_week_nights").alias("no_of_week_nights"),
-        F.col("record.required_car_parking_space").alias("required_car_parking_space"),
+        F.col("record.required_car_parking_space")
+            .alias("required_car_parking_space"),
         F.col("record.lead_time").alias("lead_time"),
-        F.col("record.arrival_year").alias("arrival_year"),
-        F.col("record.arrival_month").alias("arrival_month"),
-        F.col("record.arrival_date").alias("arrival_date"),
+        F.col("record.arrival_year").alias("hotel_arrival_year"),
+        F.col("record.arrival_month").alias("hotel_arrival_month"),
+        F.col("record.arrival_date").alias("hotel_arrival_date"),
         F.col("record.repeated_guest").alias("repeated_guest"),
-        F.col("record.no_of_previous_cancellations").alias("no_of_previous_cancellations"),
-        F.col("record.no_of_previous_bookings_not_canceled").alias("no_of_previous_bookings_not_canceled"),
+        F.col("record.no_of_previous_cancellations")
+            .alias("no_of_previous_cancellations"),
+        F.col("record.no_of_previous_bookings_not_canceled")
+            .alias("no_of_previous_bookings_not_canceled"),
         F.col("record.avg_price_per_room").alias("avg_price_per_room"),
         F.col("record.no_of_special_requests").alias("no_of_special_requests"),
-        F.col("record.type_of_meal_plan").alias("type_of_meal_plan"),
-        F.col("record.room_type_reserved").alias("room_type_reserved"),
-        F.col("record.market_segment_type").alias("market_segment_type"),
         F.col("parsed_response.predictions")[0].alias("prediction"),
         F.lit("hotel_reservation_model_fe").alias("model_name")
     )
@@ -102,12 +102,9 @@ def create_or_refresh_monitoring(config, spark, workspace):
         .withColumn("prediction", F.col("prediction").cast("double")) \
         .dropna(subset=["status", "prediction"])
 
-    hotel_features = spark.table(f"{config.catalog_name}.{config.schema_name}.hotel_reservation_features")
+    
 
-    df_final_with_features = df_final_with_status \
-        .join(hotel_features, on="Booking_ID", how="left")
-
-    df_final_with_features.write.format("delta").mode("append")\
+    df_final_with_status.write.format("delta").mode("append")\
         .saveAsTable(f"{config.catalog_name}.{config.schema_name}.model_monitoring")
 
     try:

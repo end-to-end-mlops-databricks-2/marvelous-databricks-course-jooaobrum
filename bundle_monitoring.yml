@@ -9,7 +9,7 @@ resources:
         pause_status: ${var.schedule_pause_status}
       tags:
         project_name: "hotel-reservation"
-        
+
       tasks:
         - task_key: "refresh_monitor_table"
           existing_cluster_id: 0201-105915-sb4m34sp

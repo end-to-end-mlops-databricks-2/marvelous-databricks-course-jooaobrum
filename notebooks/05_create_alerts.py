@@ -13,28 +13,31 @@ w = WorkspaceClient()
 srcs = w.data_sources.list()
 
 alert_query = """
-SELECT 
+SELECT
   (MEAN(f1_score_weighted) * 100.0 AS avg_f1_score_weighted)
 FROM mlops_prod.hotel_reservation.model_monitoring_profile_metrics"""
 
 
-query = w.queries.create(query=sql.CreateQueryRequestQuery(display_name=f'hotel-reservation-alert-query-{time.time_ns()}',
-                                                           warehouse_id=srcs[0].warehouse_id,
-                                                           description="Alert on f1 score weighted from hotel reservation model",
-                                                           query_text=alert_query))
+query = w.queries.create(
+    query=sql.CreateQueryRequestQuery(
+        display_name=f"hotel-reservation-alert-query-{time.time_ns()}",
+        warehouse_id=srcs[0].warehouse_id,
+        description="Alert on f1 score weighted from hotel reservation model",
+        query_text=alert_query,
+    )
+)
 
 alert = w.alerts.create(
-    alert=sql.CreateAlertRequestAlert(condition=sql.AlertCondition(operand=sql.AlertConditionOperand(
-        column=sql.AlertOperandColumn(name="avg_f1_score_weighted")),
+    alert=sql.CreateAlertRequestAlert(
+        condition=sql.AlertCondition(
+            operand=sql.AlertConditionOperand(column=sql.AlertOperandColumn(name="avg_f1_score_weighted")),
             op=sql.AlertOperator.LESS_THAN,
-            threshold=sql.AlertConditionThreshold(
-                value=sql.AlertOperandValue(
-                    double_value=75))),
-            display_name=f'house-price-mae-alert-{time.time_ns()}',
-            query_id=query.id
-        )
+            threshold=sql.AlertConditionThreshold(value=sql.AlertOperandValue(double_value=75)),
+        ),
+        display_name=f"house-price-mae-alert-{time.time_ns()}",
+        query_id=query.id,
     )
-
+)
 
 
 # COMMAND ----------

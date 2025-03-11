@@ -37,7 +37,7 @@ tags = Tags(**tags_dict)
 fe_model = FeatureLookUpModel(config=config, tags=tags, spark=spark)
 logger.info("Model initialized.")
 
-#fe_model.create_feature_table()
+# fe_model.create_feature_table()
 
 fe_model.update_feature_table()
 logger.info("Feature table updated.")

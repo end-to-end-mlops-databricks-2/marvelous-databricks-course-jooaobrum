@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -126,7 +127,38 @@ class DataProcessor:
             DataWriter object for saving DataFrames
         """
         try:
-            writer.save_to_catalog(self.train, "train_data", "overwrite")
-            writer.save_to_catalog(self.test, "test_data", "overwrite")
+            writer.save_to_catalog(self.train, "train_data", "append")
+            writer.save_to_catalog(self.test, "test_data", "append")
         except Exception as e:
             print(f"Error saving data: {e}")
+
+
+def generate_synthetic_data(df, drift=False, num_rows=10):
+    """
+    Generates synthetic data based on the input DataFrame
+    """
+    synthetic_data = pd.DataFrame()
+
+    for column in df.columns:
+        if column == "Booking_ID":
+            randint = np.random.randint(40000, 99999, num_rows)
+            id_col = [f"INS{i}" for i in randint]
+            synthetic_data[column] = id_col
+
+        elif pd.api.types.is_string_dtype(df[column]):
+            synthetic_data[column] = np.random.choice(
+                df[column].unique(), num_rows, p=df[column].value_counts(normalize=True)
+            )
+        else:
+            synthetic_data[column] = np.random.choice(df[column], num_rows)
+
+    if drift:
+        skew_features = ["no_of_previous_cancellations", "no_of_previous_bookings_not_canceled"]
+        for feature in skew_features:
+            synthetic_data[feature] = synthetic_data[feature] * 2
+
+        synthetic_data["arrival_year"] = np.random.randint(
+            df["arrival_year"].max() + 1, df["arrival_year"].max() + 3, num_rows
+        )
+
+    return synthetic_data

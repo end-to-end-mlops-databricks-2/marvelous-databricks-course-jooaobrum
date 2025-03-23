@@ -96,6 +96,9 @@ class DataProcessor:
         """
         Rename columns in the DataFrame based on aliases in the configuration.
         
+        This method handles both object-style features (with attributes) and 
+        dictionary-style features (with keys).
+        
         Returns
         -------
         DataProcessor
@@ -106,17 +109,78 @@ class DataProcessor:
         
         # Add numeric features to mapping
         for feature in self.config.num_features:
-            if hasattr(feature, 'name') and hasattr(feature, 'alias'):
+            if isinstance(feature, dict):
+                # Handle dictionary-style features
+                if 'name' in feature and 'alias' in feature:
+                    rename_mapping[feature['name']] = feature['alias']
+            elif hasattr(feature, 'name') and hasattr(feature, 'alias'):
+                # Handle object-style features
                 rename_mapping[feature.name] = feature.alias
         
         # Add categorical features to mapping
         for feature in self.config.cat_features:
-            if hasattr(feature, 'name') and hasattr(feature, 'alias'):
+            if isinstance(feature, dict):
+                # Handle dictionary-style features
+                if 'name' in feature and 'alias' in feature:
+                    rename_mapping[feature['name']] = feature['alias']
+            elif hasattr(feature, 'name') and hasattr(feature, 'alias'):
+                # Handle object-style features
                 rename_mapping[feature.name] = feature.alias
         
         # Add target to mapping
-        if hasattr(self.config.target, 'name') and hasattr(self.config.target, 'alias'):
-            rename_mapping[self.config.target.name] = self.config.target.alias
+        target = self.config.target
+        if isinstance(target, dict):
+            # Handle dictionary-style target
+            if 'name' in target and 'alias' in target:
+                rename_mapping[target['name']] = target['alias']
+        elif hasattr(target, 'name') and hasattr(target, 'alias'):
+            # Handle object-style target
+            rename_mapping[target.name] = target.alias
+        
+    def rename_columns(self) -> "DataProcessor":
+        """
+        Rename columns in the DataFrame based on aliases in the configuration.
+        
+        This method handles both object-style features (with attributes) and 
+        dictionary-style features (with keys).
+        
+        Returns
+        -------
+        DataProcessor
+            Self for method chaining
+        """
+        # Create a mapping dictionary of original names to aliases
+        rename_mapping = {}
+        
+        # Add numeric features to mapping
+        for feature in self.config.num_features:
+            if isinstance(feature, dict):
+                # Handle dictionary-style features
+                if 'name' in feature and 'alias' in feature:
+                    rename_mapping[feature['name']] = feature['alias']
+            elif hasattr(feature, 'name') and hasattr(feature, 'alias'):
+                # Handle object-style features
+                rename_mapping[feature.name] = feature.alias
+        
+        # Add categorical features to mapping
+        for feature in self.config.cat_features:
+            if isinstance(feature, dict):
+                # Handle dictionary-style features
+                if 'name' in feature and 'alias' in feature:
+                    rename_mapping[feature['name']] = feature['alias']
+            elif hasattr(feature, 'name') and hasattr(feature, 'alias'):
+                # Handle object-style features
+                rename_mapping[feature.name] = feature.alias
+        
+        # Add target to mapping
+        target = self.config.target
+        if isinstance(target, dict):
+            # Handle dictionary-style target
+            if 'name' in target and 'alias' in target:
+                rename_mapping[target['name']] = target['alias']
+        elif hasattr(target, 'name') and hasattr(target, 'alias'):
+            # Handle object-style target
+            rename_mapping[target.name] = target.alias
         
         # Apply renaming if there are mappings
         if rename_mapping:

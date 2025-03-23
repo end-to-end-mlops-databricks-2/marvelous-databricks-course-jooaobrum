@@ -11,17 +11,17 @@ def mock_config():
         input_data="dummy_path.csv",
         num_features=[
             {"name": "num_feature1", "alias": "num1", "dtype": "int32"},
-            {"name": "num_feature2", "alias": "num2", "dtype": "int32"}
+            {"name": "num_feature2", "alias": "num2", "dtype": "int32"},
         ],
         cat_features=[
             {"name": "cat_feature1", "alias": "cat_feature1", "dtype": "category"},
-            {"name": "cat_feature2", "alias": "cat_feature2", "dtype": "category"}
+            {"name": "cat_feature2", "alias": "cat_feature2", "dtype": "category"},
         ],
         target={
             "name": "booking_status",
             "alias": "booking_status",
             "dtype": "int32",
-            "mapping": {"Canceled": 1, "Not_Canceled": 0}
+            "mapping": {"Canceled": 1, "Not_Canceled": 0},
         },
         test_size=0.2,
         random_state=42,
@@ -30,13 +30,13 @@ def mock_config():
         id_columns=["id"],
         catalog_name="uc_test",
         schema_name="hotel_reservation",
-        experiment_name="hotel_booking_test"
+        experiment_name="hotel_booking_test",
     )
 
 
 @pytest.fixture
 def mock_tags():
-    return Tags(git_sha="123", branch="test", job_run_id = "test")
+    return Tags(git_sha="123", branch="test", job_run_id="test")
 
 
 @pytest.fixture
@@ -61,8 +61,8 @@ def test_load_data(mock_model, fake_data):
     mock_model.train_set = fake_data.copy()
     mock_model.test_set = fake_data.copy()
 
-    features = [feat['alias'] for feat in mock_model.config.num_features + mock_model.config.cat_features]
-    target = mock_model.config.target['alias']
+    features = [feat["alias"] for feat in mock_model.config.num_features + mock_model.config.cat_features]
+    target = mock_model.config.target["alias"]
 
     mock_model.X_train = mock_model.train_set[features]
     mock_model.y_train = mock_model.train_set[target]

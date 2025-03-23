@@ -1,5 +1,6 @@
 import os
 
+
 def is_databricks() -> bool:
     """Check if the code is running in a Databricks environment.
 

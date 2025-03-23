@@ -14,7 +14,7 @@ def test_yaml_file_valid():
     config_path = "../project_config.yml"
 
     try:
-        config = ProjectConfig.from_yaml(config_path, env = "dev")
+        config = ProjectConfig.from_yaml(config_path, env="dev")
     except ValidationError as e:
         raise RuntimeError(f"Error loading {config_path}") from e
 

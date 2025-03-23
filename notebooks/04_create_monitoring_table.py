@@ -1,5 +1,5 @@
 # Databricks notebook source
-# !pip install house_price-1.1.3-py3-none-any.whl
+#!pip install /Volumes/uc_dev/hotel_reservation/samples/packages/hotel_reservations-latest-py3-none-any.whl
 
 # COMMAND ----------
 

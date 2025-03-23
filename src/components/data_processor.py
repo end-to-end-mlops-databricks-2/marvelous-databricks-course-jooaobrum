@@ -1,103 +1,244 @@
 import numpy as np
 import pandas as pd
+from typing import Optional, Dict, List, Callable, Tuple
 from sklearn.model_selection import train_test_split
-
+from loguru import logger
 from components.config import ProjectConfig
 from components.data_writer import DataWriter
 
 
 class DataProcessor:
     """
-    A class for processing and preparing data for machine learning tasks.
-
-    This class handles various data preprocessing steps including:
-    - Converting feature types (numeric and categorical)
-    - Target variable transformation
-    - Train-test splitting
-
+    Data processor for ML pipeline development.
+    
     Attributes
     ----------
     data : pd.DataFrame
-        The input dataset to be processed
-    cfg : ProjectConfig
-        Configuration object containing processing parameters
+        The input dataset
+    config : ProjectConfig
+        Configuration object with processing parameters
     train : pd.DataFrame, optional
         Training dataset after splitting
     test : pd.DataFrame, optional
         Test dataset after splitting
-
     """
 
-    def __init__(self, data: pd.DataFrame, cfg: ProjectConfig) -> None:
+    def __init__(self, data: pd.DataFrame, config: ProjectConfig) -> None:
         """
-        Initialize the DataProcessor with input data and configuration.
+        Initialize with input data and configuration.
 
         Parameters
         ----------
         data : pd.DataFrame
-            Input dataset to be processed
-        cfg : ProjectConfig
-            Configuration object containing processing parameters
+            Input dataset to process
+        config : ProjectConfig
+            Configuration with processing parameters
         """
-        self.data = data
-        self.cfg = cfg
+        self.data = data.copy()
+        self.config = config
         self.train = None
         self.test = None
-
-    def _treat_target(self, row: pd.Series) -> int:
+        
+        logger.info(f"DataProcessor initialized with {len(data)} rows and {len(data.columns)} columns")
+        
+    def validate_columns(self) -> "DataProcessor":
         """
-        Transform target variable into binary format.
+        Check if required columns exist in the dataframe.
 
-        Parameters
-        ----------
-        row : pd.Series
-            A single row from the DataFrame
+        Works with both string features and object features with attributes.
+        """
+        # Get all required column names
+        required_columns = []
 
+        # Extract names from numeric features
+        for feature in self.config.num_features:
+            if isinstance(feature, dict) or hasattr(feature, 'name'):
+                # For dictionary-like objects
+                name = feature.get('name') if isinstance(feature, dict) else feature.name
+                required_columns.append(name)
+            else:
+                # For string features
+                required_columns.append(feature)
+
+        # Extract names from categorical features
+        for feature in self.config.cat_features:
+            if isinstance(feature, dict) or hasattr(feature, 'name'):
+                # For dictionary-like objects
+                name = feature.get('name') if isinstance(feature, dict) else feature.name
+                required_columns.append(name)
+            else:
+                # For string features
+                required_columns.append(feature)
+
+        # Add target column
+        target = self.config.target
+        if isinstance(target, dict) or hasattr(target, 'name'):
+            # For dictionary-like target
+            name = target.get('name') if isinstance(target, dict) else target.name
+            required_columns.append(name)
+        else:
+            # For string target
+            required_columns.append(target)
+
+        # Check for missing columns
+        missing_columns = [col for col in required_columns if col not in self.data.columns]
+        if missing_columns:
+            logger.error(f"Missing columns: {missing_columns}")
+            raise ValueError(f"Missing columns: {missing_columns}")
+
+        logger.info("All required columns present")
+        return self
+        
+            
+        return self
+    
+    def rename_columns(self) -> "DataProcessor":
+        """
+        Rename columns in the DataFrame based on aliases in the configuration.
+        
         Returns
         -------
-        int
-            0 for 'Not_Canceled', 1 for 'Canceled'
+        DataProcessor
+            Self for method chaining
         """
-        return 0 if row[self.cfg.target] == "Not_Canceled" else 1
+        # Create a mapping dictionary of original names to aliases
+        rename_mapping = {}
+        
+        # Add numeric features to mapping
+        for feature in self.config.num_features:
+            if hasattr(feature, 'name') and hasattr(feature, 'alias'):
+                rename_mapping[feature.name] = feature.alias
+        
+        # Add categorical features to mapping
+        for feature in self.config.cat_features:
+            if hasattr(feature, 'name') and hasattr(feature, 'alias'):
+                rename_mapping[feature.name] = feature.alias
+        
+        # Add target to mapping
+        if hasattr(self.config.target, 'name') and hasattr(self.config.target, 'alias'):
+            rename_mapping[self.config.target.name] = self.config.target.alias
+        
+        # Apply renaming if there are mappings
+        if rename_mapping:
+            self.data.rename(columns=rename_mapping, inplace=True)
+            logger.info(f"Renamed columns: {rename_mapping}")
+        else:
+            logger.info("No columns to rename")
+        
+        return self
+    
+    def convert_datatypes(self) -> "DataProcessor":
+        """
+        Convert column data types based on configuration.
+        """
+        # Get all features (numeric + categorical + target)
+        features = []
+        features.extend(self.config.num_features)
+        features.extend(self.config.cat_features)
+        features.append(self.config.target)
+        
+        # Convert each feature
+        for feature in features:
 
-    def _treat_num_features(self) -> None:
-        """
-        Convert numeric features to proper numeric type.
+            # Access dictionary keys, not attributes
+            name = feature['name']
+            alias = feature.get('alias', name)  # Use get() to handle missing keys
+            dtype = feature['dtype']
 
-        Modifies the DataFrame in place by converting all features specified
-        in cfg.num_features to numeric type.
-        """
-        for feature in self.cfg.num_features:
-            self.data[feature] = pd.to_numeric(self.data[feature])
+            if name == self.config.target['name']:
+                logger.info(f"Applying mapping to target column '{alias}'")
+                mapping = feature['mapping']
+                self.data[alias] = self.data[alias].map(mapping)
+                logger.info(f"Target mapped to values: {self.data[alias].value_counts().to_dict()}")
+            
+            else:
+                # Convert if needed
+                self.data[alias] = self.data[alias].astype(dtype)
+                logger.debug(f"Converted {alias} to {dtype}")
+        
 
-    def _treat_cat_features(self) -> None:
+        
+        logger.info("Data type conversion completed")
+        return self
+        
+    def check_null_values(self, raise_error: bool = True) -> "DataProcessor":
         """
-        Convert categorical features to string type.
-
-        Modifies the DataFrame in place by converting all features specified
-        in cfg.cat_features to string type.
+        Check for null values in the DataFrame.
         """
-        for feature in self.cfg.cat_features:
-            self.data[feature] = self.data[feature].astype(str)
+        
+        # Get null counts by column
+        null_counts = self.data.isnull().sum()
+        
+        # Filter to only columns with nulls
+        columns_with_nulls = null_counts[null_counts > 0.25]
+        
+        if len(columns_with_nulls) > 0:
+            # Calculate percentage of nulls
+            null_percentages = 100 * columns_with_nulls / len(self.data)
+            
+            # Create a report
+            report = "Null values report:\n"
+            report += "-" * 40 + "\n"
+            report += "Column                 Nulls    Percentage\n"
+            report += "-" * 40 + "\n"
+            
+            for col, count in columns_with_nulls.items():
+                percentage = null_percentages[col]
+                report += f"{col[:20]:<20} {count:>8} {percentage:>12.2f}%\n"
+                
+            report += "-" * 40 + "\n"
+            report += f"Total null values: {columns_with_nulls.sum()}\n"
+            
+            # Log the report
+            logger.warning(report)
+            
+            # Raise error if requested
+            if raise_error:
+                raise ValueError("Unexpected null values found. See log for details.")
+        else:
+            logger.info("No null values found in the dataset.")
+            
+        return self
 
     def pre_processing(self) -> pd.DataFrame:
         """
         Perform all preprocessing steps on the data.
-
+        
         Steps include:
-        1. Transform target variable
-        2. Convert numeric features
-        3. Convert categorical features
+        1. Validate required columns
+        2. Rename columns based on configuration
+        3. Convert data types based on configuration
+        4. Apply custom numeric feature transformations
+        5. Check for null values
 
+        Observations: You can add any custom transformation steps here.
+        
+        Parameters
+        ----------
+        custom_processor : CustomProcessing, optional
+            Instance of CustomProcessing class with custom transformation methods
+            
         Returns
         -------
         pd.DataFrame
             The processed DataFrame
         """
-        self.data[self.cfg.target] = self.data.apply(self._treat_target, axis=1)
-        self._treat_num_features()
-        self._treat_cat_features()
+        logger.info("Starting preprocessing pipeline")
+        
+        # Validate columns exist
+        self.validate_columns()
+
+        # Rename columns based on configuration
+        self.rename_columns()
+        
+        # Convert data types based on configuration
+        self.convert_datatypes()
+
+        # Check for null values
+        self.check_null_values()
+        
         return self.data
+        
 
     def split_data(self) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
@@ -113,24 +254,9 @@ class DataProcessor:
             A tuple containing (training_data, test_data)
         """
         self.train, self.test = train_test_split(
-            self.data, test_size=self.cfg.test_size, random_state=self.cfg.random_state
+            self.data, test_size=self.config.test_size, random_state=self.config.random_state
         )
         return self.train, self.test
-
-    def save_train_test(self, writer: DataWriter) -> None:
-        """
-        Save training and test datasets to Databricks tables.
-
-        Parameters
-        ----------
-        writer : DataWriter
-            DataWriter object for saving DataFrames
-        """
-        try:
-            writer.save_to_catalog(self.train, "train_data", "append")
-            writer.save_to_catalog(self.test, "test_data", "append")
-        except Exception as e:
-            print(f"Error saving data: {e}")
 
 
 def generate_synthetic_data(df, drift=False, num_rows=10):
@@ -162,3 +288,5 @@ def generate_synthetic_data(df, drift=False, num_rows=10):
         )
 
     return synthetic_data
+
+

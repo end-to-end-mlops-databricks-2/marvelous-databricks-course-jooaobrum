@@ -9,9 +9,9 @@ class ProjectConfig(BaseModel):
     test_size: float
     random_state: int
     id_columns: List[str]
-    num_features: List[str]
-    cat_features: List[str]
-    target: str
+    num_features: List[dict]
+    cat_features: List[dict]
+    target: dict
     catalog_name: str
     schema_name: str
     experiment_name: str

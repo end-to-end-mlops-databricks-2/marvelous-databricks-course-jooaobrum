@@ -213,8 +213,30 @@ class DataProcessor:
             logger.info("No null values found in the dataset.")
 
         return self
+    
+    def apply_custom_transformations(self, optional_custom_processor: Any) -> "DataProcessor":
+        """
+        Apply custom transformations using a provided CustomProcessing instance.
+        
+        Parameters
+        ----------
+        custom_processor : Any
+            An instance of a custom processing class that has an apply_transformations method
+            
+        Returns
+        -------
+        DataProcessor
+            Self for method chaining
+        """
+        # This method assumes the caller has already verified that
+        # optional_custom_processor has an apply_transformations method
+        logger.info("Applying custom transformations")
+        self.data = optional_custom_processor.apply_transformations(self.data)
+        logger.info("Custom transformations completed")
+            
+        return self
 
-    def pre_processing(self) -> pd.DataFrame:
+    def pre_processing(self, optional_custom_processor: Optional[Any] = None) -> pd.DataFrame:
         """
         Perform all preprocessing steps on the data.
 
@@ -247,6 +269,15 @@ class DataProcessor:
 
         # Convert data types based on configuration
         self.convert_datatypes()
+
+        # Apply custom transformations if a processor is provided
+        if optional_custom_processor is not None:
+            if hasattr(optional_custom_processor, 'apply_transformations') and callable(optional_custom_processor.apply_transformations):
+                self.apply_custom_transformations(optional_custom_processor)
+            else:
+                logger.warning("Custom processor provided but doesn't have an apply_transformations method. Skipping custom processing.")
+
+
 
         # Check for null values
         self.check_null_values()

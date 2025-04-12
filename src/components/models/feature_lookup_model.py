@@ -114,7 +114,7 @@ class FeatureLookUpModel:
                     feature_names=self.cat_features + self.num_features,
                     lookup_key=self.primary_keys,
                 ),
-            ]
+            ],
         )
 
         self.training_df = self.training_set.load_df().toPandas()

@@ -1,3 +1,4 @@
+from typing import Dict, List, Optional, Tuple, Union, Callable, Any
 import numpy as np
 import pandas as pd
 from loguru import logger
@@ -33,7 +34,7 @@ class DataProcessor:
         config : ProjectConfig
             Configuration with processing parameters
         """
-        self.data = data.copy()
+        self.data = data
         self.config = config
         self.train = None
         self.test = None
@@ -231,10 +232,10 @@ class DataProcessor:
         # This method assumes the caller has already verified that
         # optional_custom_processor has an apply_transformations method
         logger.info("Applying custom transformations")
-        self.data = optional_custom_processor.apply_transformations(self.data)
+        transformed_data = optional_custom_processor.apply_transformations(self.data)
         logger.info("Custom transformations completed")
             
-        return self
+        return transformed_data
 
     def pre_processing(self, optional_custom_processor: Optional[Any] = None) -> pd.DataFrame:
         """
@@ -276,8 +277,6 @@ class DataProcessor:
                 self.apply_custom_transformations(optional_custom_processor)
             else:
                 logger.warning("Custom processor provided but doesn't have an apply_transformations method. Skipping custom processing.")
-
-
 
         # Check for null values
         self.check_null_values()

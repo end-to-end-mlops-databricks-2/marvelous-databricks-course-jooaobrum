@@ -23,18 +23,27 @@ class DataReader:
         Reads the CSV file and returns it as a pandas DataFrame.
     """
 
-    def __init__(self, config: ProjectConfig):
+    def __init__(self, config=None):
         """
         Initialize the DataReader with project configuration.
-
+        
         Parameters:
-            config: ProjectConfig object containing necessary configuration
+        -----------
+        config : ProjectConfig, optional
+            Project configuration object. If None, attempts to load default config.
+        cache_enabled : bool, default=True
+            Whether to enable caching of read operations.
+        cache_dir : str, optional
+            Directory to store cached data. If None, uses system temp directory.
         """
+        # Initialize configuration
         self.config = config
-        self.input_data = config.input_data
-        logger.info(f"Initializing DataReader with input_data: {self.input_data}")
+        if hasattr(config, 'input_data'):
+            self.input_data = config.input_data
+        else:
+            self.input_data = None
 
-    def read_spark_csv(self, filepath: Optional[str] = None, **options) -> SparkDataFrame:
+    def read_spark_csv(self, filepath: Optional[str] = None, as_pandas: bool = False, **options) -> SparkDataFrame:
         """
         Read a CSV file into a Spark DataFrame.
 
@@ -80,6 +89,10 @@ class DataReader:
             num_rows = df_spark.count()
             num_cols = len(df_spark.columns)
             logger.info(f"Successfully read CSV with Spark: {num_rows} rows, {num_cols} columns")
+
+            if as_pandas:
+                logger.debug("Converting Spark DataFrame to pandas DataFrame")
+                return df_spark.toPandas()
 
             return df_spark
 

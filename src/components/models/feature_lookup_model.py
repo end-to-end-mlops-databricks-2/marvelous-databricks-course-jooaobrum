@@ -85,12 +85,12 @@ class FeatureLookUpModel:
         Load training and testing data from Delta tables.
         """
         # Get primary key and target column from config
-        primary_key = self.primary_key
+        primary_keys = self.primary_keys
         target_column = self.target
         
         # Load only ID and target columns from training data
         self.train_set = self.spark.table(self.train_table).select(
-            primary_key, target_column
+            primary_keys + [target_column]
         )
         
         # Load full test data

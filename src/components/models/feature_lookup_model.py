@@ -17,28 +17,11 @@ from sklearn.preprocessing import OneHotEncoder
 
 from components.config import ProjectConfig, Tags
 
-
-class ModelWrapper(mlflow.pyfunc.PythonModel):
-    """
-    Wrapper class to make the trained model compatible with MLflow.
-    """
-
-    def __init__(self, model):
-        self.model = model
-
-    def predict(self, context, model_input: Union[pd.DataFrame, np.ndarray]) -> dict:
-        """
-        Generate probability predictions for the input data.
-
-        Args:
-            context: MLflow context (not used in this implementation).
-            model_input (pd.DataFrame | np.ndarray): Input data.
-
-        Returns:
-            dict: Dictionary containing predicted probabilities.
-        """
-        probas = self.model.predict_proba(model_input)[:, 1]
-        return {"probability": probas.tolist()}
+from components.models.model_toolkit import (
+    build_preprocessor,
+    create_pipeline,
+    train_model
+)
 
 
 class FeatureLookUpModel:
@@ -62,101 +45,62 @@ class FeatureLookUpModel:
         # Define table names and function name
         self.feature_table_name = f"{self.catalog_name}.{self.schema_name}.hotel_reservation_features"
 
+        # Define primary key
+        self.primary_keys = self.config.primary_keys
+
         # MLflow configuration
         self.experiment_name = self.config.experiment_name
         self.tags = tags.dict()
 
     def create_feature_table(self):
         """
-        Create or replace the house_features table and populate it.
+        Create or replace the feature table and populate it.
         """
-        self.spark.sql(f"""
-        CREATE OR REPLACE TABLE {self.feature_table_name}
-        (
-            Booking_ID STRING NOT NULL,
-            no_of_adults BIGINT,
-            no_of_children BIGINT,
-            no_of_weekend_nights BIGINT,
-            no_of_week_nights BIGINT,
-            type_of_meal_plan STRING,
-            required_car_parking_space BIGINT,
-            room_type_reserved STRING,
-            lead_time BIGINT,
-            arrival_year BIGINT,
-            arrival_month BIGINT,
-            arrival_date BIGINT,
-            market_segment_type STRING,
-            repeated_guest BIGINT,
-            no_of_previous_cancellations BIGINT,
-            no_of_previous_bookings_not_canceled BIGINT,
-            avg_price_per_room DOUBLE,
-            no_of_special_requests BIGINT,
-            update_timestamp_utc TIMESTAMP
-        )
-        """)
-        self.spark.sql(f"ALTER TABLE {self.feature_table_name} ADD CONSTRAINT booking_pk PRIMARY KEY(Booking_ID);")
-        self.spark.sql(f"ALTER TABLE {self.feature_table_name} SET TBLPROPERTIES (delta.enableChangeDataFeed = true);")
 
-        self.spark.sql(
-            f"""INSERT INTO {self.feature_table_name}
-            SELECT Booking_ID,
-            no_of_adults,
-            no_of_children,
-            no_of_weekend_nights,
-            no_of_week_nights,
-            type_of_meal_plan,
-            required_car_parking_space,
-            room_type_reserved,
-            lead_time,
-            arrival_year,
-            arrival_month,
-            arrival_date,
-            market_segment_type,
-            repeated_guest,
-            no_of_previous_cancellations,
-            no_of_previous_bookings_not_canceled,
-            avg_price_per_room,
-            no_of_special_requests,
-            update_timestamp_utc
-            FROM {self.catalog_name}.{self.schema_name}.train_data"""
+        train_data = self.spark.table(f"{self.catalog_name}.{self.schema_name}.train_data")
+        test_data = self.spark.table(f"{self.catalog_name}.{self.schema_name}.test_data")
+
+        source_df = train_data.unionByName(test_data, allowMissingColumns=True)
+
+        # Create the new feature table
+        self.fe.create_feature_table(
+            name=f"{self.catalog_name}.{self.schema_name}.{self.feature_table_name}",
+            primary_keys=self.primary_keys,
+            df=source_df,
+            schema=source_df.schema,
+            description=f"Feature table for {self.model_name}"
         )
-        self.spark.sql(
-            f"""INSERT INTO {self.feature_table_name}
-            SELECT Booking_ID,
-            no_of_adults,
-            no_of_children,
-            no_of_weekend_nights,
-            no_of_week_nights,
-            type_of_meal_plan,
-            required_car_parking_space,
-            room_type_reserved,
-            lead_time,
-            arrival_year,
-            arrival_month,
-            arrival_date,
-            market_segment_type,
-            repeated_guest,
-            no_of_previous_cancellations,
-            no_of_previous_bookings_not_canceled,
-            avg_price_per_room,
-            no_of_special_requests,
-            update_timestamp_utc
-            FROM {self.catalog_name}.{self.schema_name}.test_data"""
+        
+        # Write features to the new table
+        self.fe.write_table(
+            name=f"{self.catalog_name}.{self.schema_name}.{self.feature_table_name}",
+            df=source_df,
+            mode="overwrite"
         )
+
         logger.info("Feature table created and populated.")
 
     def load_data(self):
         """
         Load training and testing data from Delta tables.
         """
-        self.train_set = self.spark.table(f"{self.catalog_name}.{self.schema_name}.train_data").select(
-            "Booking_ID", "booking_status"
+        # Get primary key and target column from config
+        primary_key = self.primary_key
+        target_column = self.target
+        
+        # Load only ID and target columns from training data
+        self.train_set = self.spark.table(self.train_table).select(
+            primary_key, target_column
         )
-        self.test_set = self.spark.table(f"{self.catalog_name}.{self.schema_name}.test_data").toPandas()
+        
+        # Load full test data
+        self.test_set = self.spark.table(self.test_table).toPandas()
 
-        logger.info("Data successfully loaded.")
+        logger.info(f"Data successfully loaded. Train rows: {self.train_set.count()}, Test rows: {len(self.test_set)}")
+        
+        return self.train_set, self.test_set
 
-    def feature_engineering(self):
+    def retrieve_features(self):
         """
         Perform feature engineering by linking data with feature tables.
         """
@@ -166,12 +110,11 @@ class FeatureLookUpModel:
             label=self.target,
             feature_lookups=[
                 FeatureLookup(
-                    table_name=self.feature_table_name,
+                    table_name=f"{self.catalog_name}.{self.schema_name}.{self.feature_table_name}"
                     feature_names=self.cat_features + self.num_features,
-                    lookup_key="Booking_ID",
+                    lookup_key=self.primary_keys,
                 ),
-            ],
-            exclude_columns=["update_timestamp_utc"],
+            ]
         )
 
         self.training_df = self.training_set.load_df().toPandas()
@@ -180,184 +123,109 @@ class FeatureLookUpModel:
         self.X_test = self.test_set[self.num_features + self.cat_features]
         self.y_test = self.test_set[self.target]
 
-        logger.info("Feature engineering completed.")
+        logger.info("Feature retrieval completed.")
 
     def train(self):
-        """
-        Train the model and log results to MLflow.
-        """
-        logger.info("Starting training...")
-
-        self.preprocessor = ColumnTransformer(
-            transformers=[("cat", OneHotEncoder(handle_unknown="ignore"), self.cat_features)], remainder="passthrough"
+        logger.info("Starting model training...")
+        
+        # Get preprocessing strategies from config
+        numeric_strategy = getattr(self.config, 'numeric_strategy', 'standard')
+        categorical_strategy = getattr(self.config, 'categorical_strategy', 'onehot')
+        missing_strategy = getattr(self.config, 'missing_strategy', 'mean')
+        
+        # Get feature names
+        num_feature_names = [f['alias'] for f in self.config.num_features]
+        cat_feature_names = [f['alias'] for f in self.config.cat_features]
+        
+        # 1. Build the preprocessor
+        self.preprocessor = build_preprocessor(
+            numeric_features=num_feature_names,
+            categorical_features=cat_feature_names,
+            numeric_strategy=numeric_strategy,
+            categorical_strategy=categorical_strategy,
+            missing_strategy=missing_strategy
         )
-
-        self.pipeline = Pipeline(
-            steps=[("preprocessor", self.preprocessor), ("classifier", LGBMClassifier(**self.parameters))]
+        
+        # Get model type from config
+        model_type = getattr(self.config, 'model_type', 'lightgbm')
+        task = getattr(self.config, 'task', 'classification')
+        resampling_strategy = getattr(self.config, 'resampling_strategy', None)
+        resampling_params = getattr(self.config, 'resampling_params', None)
+        
+        # 2. Create the pipeline
+        self.pipeline = create_pipeline(
+            preprocessor=self.preprocessor,
+            model_type=model_type,
+            task=task,
+            model_params=self.parameters,
+            resampling_strategy=resampling_strategy,
+            resampling_params=resampling_params
         )
-
+        
+        # 3. Train the model with MLflow tracking
         mlflow.set_experiment(self.experiment_name)
-
+        
         with mlflow.start_run(tags=self.tags) as run:
             self.run_id = run.info.run_id
-            self.pipeline.fit(self.X_train, self.y_train)
-            y_prob = self.pipeline.predict(self.X_test)
-            y_pred = (y_prob > 0.5).astype(int)
-
-            # Evaluate metrics
-            metrics = {
-                "recall": recall_score(self.y_test, y_pred),
-                "precision": precision_score(self.y_test, y_pred),
-                "f1": f1_score(self.y_test, y_pred),
-                "roc_auc": roc_auc_score(self.y_test, y_prob),
-                "accuracy": accuracy_score(self.y_test, y_pred),
-            }
-
-            logger.info("Logging model...")
-            for metric, value in metrics.items():
-                logger.info(f"{metric.capitalize()}: {value}")
-                mlflow.log_metric(metric, value)
-
-            mlflow.log_param("model_type", "LightGBM with preprocessing")
-            mlflow.log_params(self.parameters)
-
-            # Log model signature
-            signature = infer_signature(model_input=self.X_train, model_output={"probability": 0.351388})
-
+            
+            # Train using our toolkit function
+            model_pipeline, metrics = train_model(
+                pipeline=self.pipeline,
+                X_train=self.X_train,
+                y_train=self.y_train,
+                X_val=self.X_test,
+                y_val=self.y_test,
+                track_with_mlflow=True,  # Already in MLflow run, so it will use this run
+                log_params=True
+            )
+            
+            # Store the trained pipeline and metrics
+            self.pipeline = model_pipeline
+            self.metrics = metrics
+            
+            # Log model input/output signature
+            model_output = {"probability": 0.5} if task == "classification" else {"prediction": 0.0}
+            signature = infer_signature(model_input=self.X_train, model_output=model_output)
+            
+            # Get artifact path from config
+            artifact_path = getattr(self.config, 'artifact_path', 'model')
+            
+            # Log the model with feature store
             self.fe.log_model(
                 model=self.pipeline,
                 flavor=mlflow.sklearn,
-                artifact_path="lightgbm-pipeline-model-fe",
+                artifact_path=artifact_path,
                 training_set=self.training_set,
                 signature=signature,
             )
-        logger.info("Model training and experiment completed.")
+            
+        logger.info(f"Model training completed with metrics: {self.metrics}")
+        return self.metrics
 
-    def register_model(self):
-        """
-        Register the model in UC.
-        """
-        logger.info("Registering model...")
-        registered_model = mlflow.register_model(
-            model_uri=f"runs:/{self.run_id}/lightgbm-pipeline-model-fe",
-            name=f"{self.catalog_name}.{self.schema_name}.hotel_reservation_model_fe",
-            tags=self.tags,
-        )
-
-        # Fetch the latest version dynamically
-        latest_version = registered_model.version
-
-        client = mlflow.MlflowClient()
-        client.set_registered_model_alias(
-            name=f"{self.catalog_name}.{self.schema_name}.hotel_reservation_model_fe",
-            alias="latest-model",
-            version=latest_version,
-        )
-        logger.info("Model registered successfully.")
-
-    def load_latest_model_and_predict(self, X):
-        """
-        Load the trained model from MLflow using Feature Engineering Client and make predictions.
-        """
-        logger.info("Loading model and making predictions...")
-        model_uri = f"models:/{self.catalog_name}.{self.schema_name}.hotel_reservation_model_fe@latest-model"
-
-        predictions = self.fe.score_batch(model_uri=model_uri, df=X)
-        logger.info("Predictions completed.")
-        return predictions
 
     def update_feature_table(self):
         """
-        Updates the house_features table with the latest records from train and test sets.
+        Update the feature table with the latest data.
         """
-        queries = [
-            f"""
-            WITH max_timestamp AS (
-                SELECT MAX(update_timestamp_utc) AS max_update_timestamp
-                FROM {self.config.catalog_name}.{self.config.schema_name}.train_data
-            )
-            INSERT INTO {self.feature_table_name}
-            SELECT Booking_ID,
-            no_of_adults,
-            no_of_children,
-            no_of_weekend_nights,
-            no_of_week_nights,
-            type_of_meal_plan,
-            required_car_parking_space,
-            room_type_reserved,
-            lead_time,
-            arrival_year,
-            arrival_month,
-            arrival_date,
-            market_segment_type,
-            repeated_guest,
-            no_of_previous_cancellations,
-            no_of_previous_bookings_not_canceled,
-            CAST(avg_price_per_room AS DOUBLE) AS avg_price_per_room,
-            no_of_special_requests,
-            update_timestamp_utc
-            FROM {self.config.catalog_name}.{self.config.schema_name}.train_data
-            WHERE update_timestamp_utc >= (SELECT max_update_timestamp FROM max_timestamp)
-            """,
-            f"""
-            WITH max_timestamp AS (
-                SELECT MAX(update_timestamp_utc) AS max_update_timestamp
-                FROM {self.config.catalog_name}.{self.config.schema_name}.test_data
-            )
-            INSERT INTO {self.feature_table_name}
-            SELECT Booking_ID,
-            no_of_adults,
-            no_of_children,
-            no_of_weekend_nights,
-            no_of_week_nights,
-            type_of_meal_plan,
-            required_car_parking_space,
-            room_type_reserved,
-            lead_time,
-            arrival_year,
-            arrival_month,
-            arrival_date,
-            market_segment_type,
-            repeated_guest,
-            no_of_previous_cancellations,
-            no_of_previous_bookings_not_canceled,
-            CAST(avg_price_per_room AS DOUBLE) AS avg_price_per_room,
-            no_of_special_requests,
-            update_timestamp_utc
-            FROM {self.config.catalog_name}.{self.config.schema_name}.test_data
-            WHERE update_timestamp_utc >= (SELECT max_update_timestamp FROM max_timestamp)
-            """,
-        ]
+        logger.info(f"Updating feature table {self.feature_table_name}...")
+        
+        train_data = self.spark.table(f"{self.catalog_name}.{self.schema_name}.train_data")
+        test_data = self.spark.table(f"{self.catalog_name}.{self.schema_name}.test_data")
+        
+        # Combine new data
+        source_df = train_data.unionByName(test_data, allowMissingColumns=True)
+        
+        # Write to feature table in merge mode
+        self.fe.write_table(
+            name=f"{self.catalog_name}.{self.schema_name}.{self.feature_table_name}",
+            df=source_df,
+            mode="merge"
+        )
+        
+        # Count updated records
+        count = source_df.count()
+        logger.info(f"Feature table updated with {count} records.")
+        
+        return count
 
-        for query in queries:
-            logger.info("Executing SQL update query...")
-            self.spark.sql(query)
-        logger.info("House features table updated successfully.")
-
-    def model_improved(self, X: pd.DataFrame):
-        """
-        Evaluate model performance on the test set
-        """
-
-        features = self.num_features + self.cat_features
-
-        try:
-            preds_latest = self.load_latest_model_and_predict(X[features])
-            preds_current = self.model.predict(X[features])
-
-            latest_roc_auc = roc_auc_score(X[self.config.target], preds_latest)
-            current_roc_auc = roc_auc_score(X[self.config.target], preds_current)
-
-            model_status = False
-            if current_roc_auc > latest_roc_auc:
-                logger.info("Challenger performs better. Register the Challenger.")
-                model_status = True
-            else:
-                logger.info("Champion performs better. Keep the Champion.")
-
-            return model_status
-
-        except Exception:
-            logger.info("No latest-model found. Register the current model.")
-            model_status = True
-            return model_status
+ 

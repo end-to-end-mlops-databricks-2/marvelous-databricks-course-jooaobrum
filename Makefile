@@ -61,7 +61,7 @@ update-whl-dbx:
 	@echo "Copying latest wheel file to Databricks..."
 	@LATEST_WHL=$$(ls -t ./dist/*.whl | head -1) && \
 	echo "Using wheel file: $$LATEST_WHL" && \
-	databricks fs cp $$LATEST_WHL dbfs:/Volumes/uc_dev/hotel_reservation/samples/packages/hotel_reservations-latest-py3-none-any.whl --overwrite && \
+	databricks fs cp $$LATEST_WHL dbfs:/Volumes/uc_dev/hotel_reservation/samples/packages/hotel_reservation-latest-py3-none-any.whl --overwrite
 
 
 # Full release process

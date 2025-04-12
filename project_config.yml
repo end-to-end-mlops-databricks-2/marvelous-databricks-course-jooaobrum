@@ -1,6 +1,10 @@
 # Input Data
 input_data : '/Volumes/uc_dev/hotel_reservation/samples/hotel_reservations.csv'
 
+# Primary Keys
+primary_keys:
+  - Booking_ID
+
 # Mlflow Config
 experiment_name: /Shared/hotel-reservations
 
@@ -14,9 +18,6 @@ parameters:
   n_estimators: 300
   max_depth: 6
   learning_rate: 0.01
-
-id_columns:
-  - Booking_ID
 
 # Features with name, alias, and dtype
 num_features:
@@ -87,14 +88,19 @@ prod:
   catalog_name: uc_prod
   schema_name: hotel_reservation
   pipeline_id: 035aefd6-0bdf-4d3c-9f62-aa96a5c56451
+  feature_table_name: hotel_reservation_fs
 qa:
   catalog_name: uc_qa
   schema_name: hotel_reservation
   pipeline_id: 035aefd6-0bdf-4d3c-9f62-aa96a5c56451
+  feature_table_name: hotel_reservation_fs
+
 dev:
   catalog_name: uc_dev
   schema_name: hotel_reservation
   pipeline_id: 035aefd6-0bdf-4d3c-9f62-aa96a5c56451
+  feature_table_name: hotel_reservation_fs
+
 
 # Endpoint
 endpoint_name: hotel-reservation-model-serving-fe

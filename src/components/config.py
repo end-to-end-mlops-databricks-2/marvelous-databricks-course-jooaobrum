@@ -6,14 +6,15 @@ from pydantic import BaseModel
 
 class ProjectConfig(BaseModel):
     input_data: str
+    primary_keys: List[str]
     test_size: float
     random_state: int
-    id_columns: List[str]
     num_features: List[dict]
     cat_features: List[dict]
     target: dict
     catalog_name: str
     schema_name: str
+    feature_table_name: str
     experiment_name: str
     parameters: dict
     endpoint_name: str

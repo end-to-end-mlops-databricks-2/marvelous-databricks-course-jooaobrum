@@ -110,7 +110,7 @@ class FeatureLookUpModel:
             label=self.target,
             feature_lookups=[
                 FeatureLookup(
-                    table_name=f"{self.catalog_name}.{self.schema_name}.{self.feature_table_name}"
+                    table_name=f"{self.catalog_name}.{self.schema_name}.{self.feature_table_name}",
                     feature_names=self.cat_features + self.num_features,
                     lookup_key=self.primary_keys,
                 ),

@@ -5,8 +5,6 @@ from loguru import logger
 from pyspark.sql import DataFrame as SparkDataFrame
 from pyspark.sql import SparkSession
 
-from components.config import ProjectConfig
-
 
 class DataReader:
     """
@@ -26,7 +24,7 @@ class DataReader:
     def __init__(self, config=None):
         """
         Initialize the DataReader with project configuration.
-        
+
         Parameters:
         -----------
         config : ProjectConfig, optional
@@ -38,7 +36,7 @@ class DataReader:
         """
         # Initialize configuration
         self.config = config
-        if hasattr(config, 'input_data'):
+        if hasattr(config, "input_data"):
             self.input_data = config.input_data
         else:
             self.input_data = None

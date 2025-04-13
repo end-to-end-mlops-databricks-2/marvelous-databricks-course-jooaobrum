@@ -19,8 +19,14 @@ For this model, make sure you have the following parameters in the config file:
 - primary_keys
 - num_features
 - cat_features
+- numeric_strategy
+- categorical_strategy
+- missing_strategy
+- test_size
+- feature_table_name
 - target
 - random_state
+- parameters
 
 Modify feature_lookup_model.py file and edit the functions to be used in the template.
 """

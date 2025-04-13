@@ -3,7 +3,8 @@ from typing import Dict, List, Optional, Union, Any
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame
 from pyspark.sql import SparkSession
-from databricks.feature_store import FeatureStoreClient, FeatureLookup
+from databricks.feature_engineering import FeatureEngineeringClient, FeatureLookup
+
 
 class FeatureStoreWrapper:
     """
@@ -43,18 +44,18 @@ class FeatureStoreWrapper:
         self.spark = spark or SparkSession.builder.getOrCreate()
         
         # Initialize Feature Store client
-        self.fs = FeatureStoreClient()
+        self.fs = FeatureEngineeringClient()
         
         logger.info(f"Feature Store wrapper initialized. Catalog: {catalog}, Schema: {schema}, Table: {table_name}")
     
     
     def create_feature_table(
         self,
-        schema: Optional[str] = None,
-        catalog: Optional[str] = None,
-        table_name: Optional[str] = None
         df: Union[pd.DataFrame, SparkDataFrame],
         primary_keys: List[str],
+        table_name: Optional[str] = None,
+        catalog: Optional[str] = None,
+        schema: Optional[str] = None,
         description: Optional[str] = None,
         partition_columns: Optional[List[str]] = None,
         mode: str = "overwrite",
@@ -127,8 +128,7 @@ class FeatureStoreWrapper:
         df: Union[pd.DataFrame, SparkDataFrame],
         schema: Optional[str] = None,
         catalog: Optional[str] = None,
-        table_name: Optional[str] = None,
-        mode: str = "merge"
+        table_name: Optional[str] = None
     ) -> None:
         """
         Update an existing feature table with new data.
@@ -162,18 +162,11 @@ class FeatureStoreWrapper:
         # Write to feature table
         logger.info(f"Updating feature table: {feature_table_name}")
         
-        if mode == "merge":
-            self.fs.write_table(
-                name=feature_table_name,
-                df=spark_df,
-                mode="merge"
-            )
-        else:  # overwrite
-            self.fs.write_table(
-                name=feature_table_name,
-                df=spark_df, 
-                mode="overwrite"
-            )
+        self.fs.write_table(
+            name=feature_table_name,
+            df=spark_df,
+            mode="merge"
+        )
             
         logger.info(f"Feature table {feature_table_name} updated successfully with mode: {mode}")
     
@@ -190,7 +183,7 @@ class FeatureStoreWrapper:
         label: Optional[str] = None,
         exclude_columns: Optional[List[str]] = None,
         timestamp_lookup_key: Optional[str] = None
-    ) -> Tuple[SparkDataFrame, Any]:
+    ) -> SparkDataFrame:
         """
         Create feature lookups and a training set in a single operation.
         
@@ -214,7 +207,7 @@ class FeatureStoreWrapper:
             Columns to exclude from the result
         timestamp_lookup_key : str, optional
             Timestamp column for point-in-time lookups
-            
+            s
         Returns
         -------
         Tuple[SparkDataFrame, Any]
@@ -262,4 +255,4 @@ class FeatureStoreWrapper:
         training_df = training_set.load_df()
         logger.info(f"Training set created with {training_df.count()} rows and {len(training_df.columns)} columns")
         
-        return training_df, training_set
+        return training_df

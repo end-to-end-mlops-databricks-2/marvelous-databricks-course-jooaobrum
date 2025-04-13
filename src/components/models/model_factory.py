@@ -172,7 +172,7 @@ class ModelFactory:
         if model_name not in model_dict:
             raise ValueError(f"Unknown model: {model_name} for task {task}")
             
-        module_name, class_name = model _dict[model_name]
+        module_name, class_name = model_dict[model_name]
         
         try:
             module = __import__(module_name, fromlist=[class_name])
@@ -217,7 +217,7 @@ class MLPipeline:
         steps = [("preprocessor", preprocessor)]
         
         # Add resampling step if requested
-        if resampling
+        if resampling:
             if resampling == "smote":
                 resampler = SMOTE(**resampling_params)
             elif resampling == "random_over":

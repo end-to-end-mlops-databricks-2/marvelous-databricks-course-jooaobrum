@@ -7,6 +7,7 @@ from datetime import datetime
 import mlflow
 from mlflow.models.signature import infer_signature
 from mlflow.tracking import MlflowClient
+from databricks.feature_engineering import FeatureEngineeringClient
 
 class MLflowToolkit:
     """
@@ -66,7 +67,7 @@ class MLflowToolkit:
         
         # Current run information
         self.current_run_id = None
-        self.feature_store_client = None
+        self.feature_store_client = FeatureEngineeringClient()
         
         # Set up experiment
         self._setup_experiment()
@@ -132,7 +133,7 @@ class MLflowToolkit:
         mlflow.log_params(params)
         logger.info(f"Logged {len(params)} parameters")
     
-    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
+    def log_metrics(self, metrics: Dict[str, float]):
         """
         Log metrics to the current run.
         
@@ -143,7 +144,7 @@ class MLflowToolkit:
         step : int, optional
             Step for the metrics
         """
-        mlflow.log_metrics(metrics, step=step)
+        mlflow.log_metrics(metrics)
         
         # Log metrics summary
         for metric_name, value in metrics.items():
@@ -190,10 +191,6 @@ class MLflowToolkit:
         if self.current_run_id is None:
             raise ValueError("No active run. Call start_run() before logging a model.")
         
-        # If feature store client is available and training_set is provided
-        if self.feature_store_client is not None and training_set is not None:
-            logger.info(f"Logging model with feature store integration at {artifact_path}")
-            
             # Infer signature if not provided
             if signature is None and hasattr(model, 'predict'):
                 # Try to infer a sample output

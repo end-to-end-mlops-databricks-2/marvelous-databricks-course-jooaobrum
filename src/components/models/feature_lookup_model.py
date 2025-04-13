@@ -39,9 +39,9 @@ class FeatureLookUpModel:
         self.fe = feature_engineering.FeatureEngineeringClient()
 
         # Extract settings from the config
-        self.num_features = self.config.num_features
-        self.cat_features = self.config.cat_features
-        self.target = self.config.target
+        self.num_features  = [feature['alias'] for feature in self.config.num_features]
+        self.cat_features  = [feature['alias'] for feature in self.config.cat_features]
+        self.target = self.config.target['alias']
         self.parameters = self.config.parameters
         self.catalog_name = self.config.catalog_name
         self.schema_name = self.config.schema_name
@@ -58,9 +58,9 @@ class FeatureLookUpModel:
         self.tags = tags.dict()
 
         self.fs_wrapper = FeatureStoreWrapper(
-            catalog_name=self.catalog_name,
-            schema_name=self.schema_name,
-            feature_table_name=self.feature_table_name,
+            catalog=self.catalog_name,
+            schema=self.schema_name,
+            table_name=self.feature_table_name,
             spark=self.spark)
 
     def create_feature_table(self):
@@ -74,7 +74,7 @@ class FeatureLookUpModel:
         source_df = train_data.unionByName(test_data, allowMissingColumns=True)
         
         # Create Feature table
-        self.fs_wrapper.create_table(df = source_df, primary_keys = self.primary_keys)
+        self.fs_wrapper.create_feature_table(df = source_df, primary_keys = self.primary_keys)
 
     def load_data(self):
         """
@@ -83,14 +83,14 @@ class FeatureLookUpModel:
         # Get primary key and target column from config
         primary_keys = self.primary_keys
         target_column = self.target
-        
+
         # Load only ID and target columns from training data
-        self.train_set = self.spark.table(self.train_table).select(
-            primary_keys + [target_column]
+        self.train_set = self.spark.table(f"{self.catalog_name}.{self.schema_name}.train_data").select(
+            *primary_keys, target_column
         )
         
         # Load full test data
-        self.test_set = self.spark.table(self.test_table).toPandas()
+        self.test_set = self.spark.table(f"{self.catalog_name}.{self.schema_name}.test_data").toPandas()
 
         logger.info(f"Data successfully loaded. Train rows: {self.train_set.count()}, Test rows: {len(self.test_set)}")
         
@@ -102,10 +102,14 @@ class FeatureLookUpModel:
         """
         logger.info("Starting feature engineering...")
         
-        self.training_df = self.fs_wrapper.create_training_set_with_lookups(
+        self.training_df, self.training_set = self.fs_wrapper.create_training_set_with_lookups(
                                                                             df=self.train_set,
                                                                             features=self.num_features + self.cat_features,
-                                                                            target=self.target)
+                                                                            lookup_key=self.primary_keys,
+                                                                            label=self.target
+                                                                            )
+        
+
         
 
         self.training_df = self.training_df.toPandas()
@@ -120,79 +124,83 @@ class FeatureLookUpModel:
         logger.info("Starting model training...")
         
         # Get preprocessing strategies from config
-        numeric_strategy = getattr(self.config, 'numeric_strategy', 'standard')
-        categorical_strategy = getattr(self.config, 'categorical_strategy', 'onehot')
-        missing_strategy = getattr(self.config, 'missing_strategy', 'mean')
+        self.numeric_strategy = self.config.numeric_strategy
+        self.categorical_strategy = self.config.categorical_strategy
+        self.missing_strategy = self.config.missing_strategy
         
-        # Get feature names
-        num_feature_names = [f['alias'] for f in self.config.num_features]
-        cat_feature_names = [f['alias'] for f in self.config.cat_features]
         
         # 1. Build the preprocessor
-        self.preprocessor = build_preprocessor(
-            numeric_features=num_feature_names,
-            categorical_features=cat_feature_names,
-            numeric_strategy=numeric_strategy,
-            categorical_strategy=categorical_strategy,
-            missing_strategy=missing_strategy
+        preprocessor = Preprocessor().create(
+            numeric_features = self.num_features,
+            categorical_features = self.cat_features,
+            numeric_strategy = self.numeric_strategy,
+            categorical_strategy = self.categorical_strategy,
+            missing_strategy= self.missing_strategy
         )
-        
-        # Get model type from config
-        model_type = getattr(self.config, 'model_type', 'lightgbm')
-        task = getattr(self.config, 'task', 'classification')
-        resampling_strategy = getattr(self.config, 'resampling_strategy', None)
-        resampling_params = getattr(self.config, 'resampling_params', None)
-        
-        # 2. Create the pipeline
-        self.pipeline = create_pipeline(
-            preprocessor=self.preprocessor,
-            model_type=model_type,
-            task=task,
-            model_params=self.parameters,
-            resampling_strategy=resampling_strategy,
-            resampling_params=resampling_params
-        )
-        
-        # 3. Train the model with MLflow tracking
-        mlflow.set_experiment(self.experiment_name)
-        
-        with mlflow.start_run(tags=self.tags) as run:
-            self.run_id = run.info.run_id
-            
-            # Train using our toolkit function
-            model_pipeline, metrics = train_model(
-                pipeline=self.pipeline,
-                X_train=self.X_train,
-                y_train=self.y_train,
-                X_val=self.X_test,
-                y_val=self.y_test,
-                track_with_mlflow=True,  # Already in MLflow run, so it will use this run
-                log_params=True
-            )
-            
-            # Store the trained pipeline and metrics
-            self.pipeline = model_pipeline
-            self.metrics = metrics
-            
-            # Log model input/output signature
-            model_output = {"probability": 0.5} if task == "classification" else {"prediction": 0.0}
-            signature = infer_signature(model_input=self.X_train, model_output=model_output)
-            
-            # Get artifact path from config
-            artifact_path = getattr(self.config, 'artifact_path', 'model')
-            
-            # Log the model with feature store
-            self.fe.log_model(
-                model=self.pipeline,
-                flavor=mlflow.sklearn,
-                artifact_path=artifact_path,
-                training_set=self.training_set,
-                signature=signature,
-            )
-            
-        logger.info(f"Model training completed with metrics: {self.metrics}")
-        return self.metrics
 
+        # 2. Create model
+        model = ModelFactory.create(
+            model_name="lgbm",
+            task="classification",
+            **self.parameters
+        )
+
+        # 3. Create pipeline with preprocessor and model
+        pipeline = MLPipeline.create(
+            preprocessor=preprocessor,
+            model=model
+        )
+
+        # 4. Initialize the MLflow toolkit
+        mlflow_client = MLflowToolkit(
+            experiment_name="hotel_reservation",
+            model_name="lgbm-hotel-reservation",
+            catalog_name=self.catalog_name,  # Optional - for Unity Catalog
+            schema_name=self.schema_name,  # Optional - for Unity Catalog
+            tags=self.tags
+        )
+
+        run_id = mlflow_client.start_run(run_name="lgbm-hotel-reservation")
+        mlflow_client.log_params(**self.parameters)
+
+        # 5. Train the model
+        pipeline.fit(self.X_train, self.y_train)
+        logger.info("Model training completed.")
+
+        # 6. Evaluate the model
+        y_pred = pipeline.predict(self.X_test)
+        y_prob = pipeline.predict_proba(self.X_test)[:, 1]
+        
+        # 7. Log metrics
+        metrics = ModelEvaluation.classification_metrics(
+                                                            y_true = self.y_test,
+                                                            y_pred = y_pred,
+                                                            y_prob = y_prob
+                                                        )
+
+        mlflow_client.log_metrics(**metrics)
+
+        # 8. Log the model
+        mlflow_client.log_model(
+            model=pipeline,
+            artifact_path=self.model_name,
+            flavor=mlflow.pyfunc,
+            training_set= self.training_set,
+            feature_names= self.num_features + self.cat_features
+        )
+
+
+
+
+
+
+
+
+
+
+
+        
+     
 
     def update_feature_table(self):
         """

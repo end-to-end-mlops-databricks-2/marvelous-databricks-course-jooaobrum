@@ -9,6 +9,9 @@ class ProjectConfig(BaseModel):
     primary_keys: List[str]
     test_size: float
     random_state: int
+    numeric_strategy: str
+    categorical_strategy: str
+    missing_strategy: str
     num_features: List[dict]
     cat_features: List[dict]
     target: dict
@@ -16,6 +19,7 @@ class ProjectConfig(BaseModel):
     schema_name: str
     feature_table_name: str
     experiment_name: str
+    model_name: str
     parameters: dict
     endpoint_name: str
 

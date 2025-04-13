@@ -21,6 +21,8 @@ For this model, make sure you have the following parameters in the config file:
 - cat_features
 - target
 - random_state
+
+Modify feature_lookup_model.py file and edit the functions to be used in the template.
 """
 # COMMAND ----------
 ######################## Load configuration ########################
@@ -56,7 +58,9 @@ logger.info("Model initialized.")
 Uncomment this section if you need to create or update the feature table
 """
 # fe_model.create_feature_table()
+# fe_model.update_feature_table()
 # logger.info("Feature table created/updated.")
+
 # COMMAND ----------
 ######################## Load and Prepare Data ########################
 """

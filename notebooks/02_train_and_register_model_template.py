@@ -5,9 +5,9 @@
 # COMMAND ----------
 import mlflow
 from pyspark.sql import SparkSession
-
+from loguru import logger
 from components.config import ProjectConfig, Tags
-from components.models.custom_model import CustomModel
+from components.models.feature_lookup_model import FeatureLookUpModel
 
 # COMMAND ----------
 # Configure tracking uri
@@ -15,24 +15,34 @@ mlflow.set_tracking_uri("databricks")
 mlflow.set_registry_uri("databricks-uc")
 
 # COMMAND ----------
-config = ProjectConfig.from_yaml(config_path="../project_config.yml")
+config = ProjectConfig.from_yaml(config_path="../project_config.yml", env="dev")
 spark = SparkSession.builder.getOrCreate()
-tags_dict = {"git_sha": "abcd12345", "branch": "feat/modeling"}
+tags_dict = {"git_sha": "abcd12345", "branch": "feat/modeling", "job_run_id": "1234"}
 tags = Tags(**tags_dict)
 
 # COMMAND ----------
 # Initialize model
-model = CustomModel(config=config, tags=tags, spark=spark, code_paths=[])
+fe_model = FeatureLookUpModel(config=config, tags=tags, spark=spark)
+logger.info("Model initialized.")
 
 # COMMAND ----------
-# Load Data
-model.load_data()
+#fe_model.create_feature_table()
+#logger.info("Feature table updated.")
 
-# Prepare Features
-model.prepare_features()
+# COMMAND ----------
+# Load data
+fe_model.load_data()
+logger.info("Data loaded.")
+
+# Retrieve Features
+fe_model.retrieve_features()
+logger.info("Features retrieved.")
 
 # Train Model
-model.train_model()
+fe_model.train()
+logger.info("Model training completed.")
 
-# Log Experiment
-model.log_model_experiment()
+# Check if model improved and register
+if fe_model.model_improved():
+    # Register the model
+    latest_version = fe_model.register_model()

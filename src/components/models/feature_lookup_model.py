@@ -3,7 +3,7 @@ from typing import Union
 import mlflow
 import numpy as np
 import pandas as pd
-from databricks import feature_engineering
+from databricks import feature_engineering  
 from databricks.feature_engineering import FeatureLookup
 from databricks.sdk import WorkspaceClient
 from lightgbm import LGBMClassifier
@@ -17,11 +17,15 @@ from sklearn.preprocessing import OneHotEncoder
 
 from components.config import ProjectConfig, Tags
 
-from components.models.model_toolkit import (
-    build_preprocessor,
-    create_pipeline,
-    train_model
+from components.models.model_factory import (
+    Preprocessor,
+    ModelFactory,
+    MLPipeline
 )
+
+from components.models.mlflow_toolkit import MLflowToolkit
+from components.models.model_feature_lookup_toolkit import FeatureStoreWrapper
+from components.models.model_metrics import ModelEvaluation
 
 
 class FeatureLookUpModel:
@@ -41,9 +45,10 @@ class FeatureLookUpModel:
         self.parameters = self.config.parameters
         self.catalog_name = self.config.catalog_name
         self.schema_name = self.config.schema_name
+        self.feature_table_name = self.config.feature_table_name
 
         # Define table names and function name
-        self.feature_table_name = f"{self.catalog_name}.{self.schema_name}.hotel_reservation_features"
+        self.full_feature_table_name = f"{self.catalog_name}.{self.schema_name}.{self.feature_table_name}"
 
         # Define primary key
         self.primary_keys = self.config.primary_keys
@@ -51,6 +56,12 @@ class FeatureLookUpModel:
         # MLflow configuration
         self.experiment_name = self.config.experiment_name
         self.tags = tags.dict()
+
+        self.fs_wrapper = FeatureStoreWrapper(
+            catalog_name=self.catalog_name,
+            schema_name=self.schema_name,
+            feature_table_name=self.feature_table_name,
+            spark=self.spark)
 
     def create_feature_table(self):
         """
@@ -61,24 +72,9 @@ class FeatureLookUpModel:
         test_data = self.spark.table(f"{self.catalog_name}.{self.schema_name}.test_data")
 
         source_df = train_data.unionByName(test_data, allowMissingColumns=True)
-
-        # Create the new feature table
-        self.fe.create_feature_table(
-            name=f"{self.catalog_name}.{self.schema_name}.{self.feature_table_name}",
-            primary_keys=self.primary_keys,
-            df=source_df,
-            schema=source_df.schema,
-            description=f"Feature table for {self.model_name}"
-        )
         
-        # Write features to the new table
-        self.fe.write_table(
-            name=f"{self.catalog_name}.{self.schema_name}.{self.feature_table_name}",
-            df=source_df,
-            mode="overwrite"
-        )
-
-        logger.info("Feature table created and populated.")
+        # Create Feature table
+        self.fs_wrapper.create_table(df = source_df, primary_keys = self.primary_keys)
 
     def load_data(self):
         """
@@ -105,19 +101,14 @@ class FeatureLookUpModel:
         Perform feature engineering by linking data with feature tables.
         """
         logger.info("Starting feature engineering...")
-        self.training_set = self.fe.create_training_set(
-            df=self.train_set,
-            label=self.target,
-            feature_lookups=[
-                FeatureLookup(
-                    table_name=f"{self.catalog_name}.{self.schema_name}.{self.feature_table_name}",
-                    feature_names=self.cat_features + self.num_features,
-                    lookup_key=self.primary_keys,
-                ),
-            ],
-        )
+        
+        self.training_df = self.fs_wrapper.create_training_set_with_lookups(
+                                                                            df=self.train_set,
+                                                                            features=self.num_features + self.cat_features,
+                                                                            target=self.target)
+        
 
-        self.training_df = self.training_set.load_df().toPandas()
+        self.training_df = self.training_df.toPandas()
         self.X_train = self.training_df[self.num_features + self.cat_features]
         self.y_train = self.training_df[self.target]
         self.X_test = self.test_set[self.num_features + self.cat_features]

@@ -167,8 +167,10 @@ class FeatureStoreWrapper:
             df=spark_df,
             mode="merge"
         )
-            
-        logger.info(f"Feature table {feature_table_name} updated successfully with mode: {mode}")
+
+        # Count updated records
+        count = spark_df.count()            
+        logger.info(f"Feature table {feature_table_name} updated successfully with {count} records. ")
     
     
 
@@ -255,4 +257,4 @@ class FeatureStoreWrapper:
         training_df = training_set.load_df()
         logger.info(f"Training set created with {training_df.count()} rows and {len(training_df.columns)} columns")
         
-        return training_df
+        return training_df, training_set

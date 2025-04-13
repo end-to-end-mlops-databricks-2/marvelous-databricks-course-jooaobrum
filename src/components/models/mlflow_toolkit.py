@@ -119,7 +119,6 @@ class MLflowToolkit:
         """End the current MLflow run."""
         mlflow.end_run()
         logger.info(f"Ended MLflow run: {self.current_run_id}")
-        self.current_run_id = None
     
     def log_params(self, params: Dict[str, Any]):
         """
@@ -191,16 +190,19 @@ class MLflowToolkit:
         if self.current_run_id is None:
             raise ValueError("No active run. Call start_run() before logging a model.")
         
-            # Infer signature if not provided
-            if signature is None and hasattr(model, 'predict'):
-                # Try to infer a sample output
-                try:
-                    if isinstance(input_example, pd.DataFrame) and len(input_example) > 0:
-                        model_output = model.predict(input_example.iloc[:1])
-                        signature = infer_signature(input_example.iloc[:1], model_output)
-                except Exception as e:
-                    logger.warning(f"Could not infer signature: {e}")
-            
+        # Infer signature if not provided
+        if signature is None and hasattr(model, 'predict'):
+            # Try to infer a sample output
+            try:
+                if isinstance(input_example, pd.DataFrame) and len(input_example) > 0:
+                    model_output = model.predict(input_example.iloc[:1])
+                    signature = infer_signature(input_example.iloc[:1], model_output)
+            except Exception as e:
+                logger.warning(f"Could not infer signature: {e}")
+        
+        # Check if we should use feature store client
+        if self.feature_store_client is not None and training_set is not None:
+            print('Using feature store client for logging model')
             return self.feature_store_client.log_model(
                 model=model,
                 flavor=flavor or mlflow.sklearn,
@@ -211,6 +213,7 @@ class MLflowToolkit:
             )
         else:
             # Use standard MLflow logging
+            print('Using standard MLflow logging')
             logger.info(f"Logging model at {artifact_path}")
             
             # Use appropriate flavor based on model type if not specified
@@ -234,7 +237,7 @@ class MLflowToolkit:
                 input_example=input_example,
                 **kwargs
             )
-        
+            
 
     def register_model(
         self,
@@ -278,10 +281,12 @@ class MLflowToolkit:
             combined_tags.update(tags)
         
         logger.info(f"Registering model {full_model_name} from run {run_id}")
+
+        model_uri = f"runs:/{run_id}/{artifact_path}"
         
         # Register the model
         registered_model = mlflow.register_model(
-            model_uri=f"runs:/{run_id}/{artifact_path}",
+            model_uri=model_uri,
             name=full_model_name,
             tags=combined_tags
         )

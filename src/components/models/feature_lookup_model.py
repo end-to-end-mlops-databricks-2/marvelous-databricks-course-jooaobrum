@@ -55,6 +55,7 @@ class FeatureLookUpModel:
 
         # MLflow configuration
         self.experiment_name = self.config.experiment_name
+        self.model_name = self.config.model_name
         self.tags = tags.dict()
 
         self.fs_wrapper = FeatureStoreWrapper(
@@ -62,6 +63,14 @@ class FeatureLookUpModel:
             schema=self.schema_name,
             table_name=self.feature_table_name,
             spark=self.spark)
+        
+        self.mlflow_client = MLflowToolkit(
+            experiment_name=self.experiment_name,
+            model_name=self.model_name,
+            catalog_name=self.catalog_name,
+            schema_name=self.schema_name,  
+            tags=self.tags
+        )
 
     def create_feature_table(self):
         """
@@ -140,36 +149,27 @@ class FeatureLookUpModel:
 
         # 2. Create model
         model = ModelFactory.create(
-            model_name="lgbm",
+            model_name="lightgbm",
             task="classification",
             **self.parameters
         )
 
         # 3. Create pipeline with preprocessor and model
-        pipeline = MLPipeline.create(
+        self.pipeline = MLPipeline.create(
             preprocessor=preprocessor,
             model=model
         )
 
-        # 4. Initialize the MLflow toolkit
-        mlflow_client = MLflowToolkit(
-            experiment_name="hotel_reservation",
-            model_name="lgbm-hotel-reservation",
-            catalog_name=self.catalog_name,  # Optional - for Unity Catalog
-            schema_name=self.schema_name,  # Optional - for Unity Catalog
-            tags=self.tags
-        )
-
-        run_id = mlflow_client.start_run(run_name="lgbm-hotel-reservation")
-        mlflow_client.log_params(**self.parameters)
+        run_id = self.mlflow_client.start_run()
+        self.mlflow_client.log_params(self.parameters)
 
         # 5. Train the model
-        pipeline.fit(self.X_train, self.y_train)
+        self.pipeline .fit(self.X_train, self.y_train)
         logger.info("Model training completed.")
 
         # 6. Evaluate the model
-        y_pred = pipeline.predict(self.X_test)
-        y_prob = pipeline.predict_proba(self.X_test)[:, 1]
+        y_pred = self.pipeline .predict(self.X_test)
+        y_prob = self.pipeline .predict_proba(self.X_test)[:, 1]
         
         # 7. Log metrics
         metrics = ModelEvaluation.classification_metrics(
@@ -178,28 +178,22 @@ class FeatureLookUpModel:
                                                             y_prob = y_prob
                                                         )
 
-        mlflow_client.log_metrics(**metrics)
+        self.mlflow_client.log_metrics(metrics)
 
         # 8. Log the model
-        mlflow_client.log_model(
-            model=pipeline,
-            artifact_path=self.model_name,
-            flavor=mlflow.pyfunc,
-            training_set= self.training_set,
-            feature_names= self.num_features + self.cat_features
-        )
-
-
-
-
-
-
-
-
-
-
-
+        self.mlflow_client.log_model(
+                                    model=self.pipeline,
+                                    artifact_path=self.model_name,
+                                    flavor=mlflow.sklearn,
+                                    training_set=self.training_set,
+                                    feature_names=self.num_features + self.cat_features
+                                )
         
+
+        # 9. End run
+        self.mlflow_client.end_run()
+        logger.info("Model training and logging completed.")
+        return self.pipeline       
      
 
     def update_feature_table(self):
@@ -214,17 +208,77 @@ class FeatureLookUpModel:
         # Combine new data
         source_df = train_data.unionByName(test_data, allowMissingColumns=True)
         
-        # Write to feature table in merge mode
-        self.fe.write_table(
-            name=f"{self.catalog_name}.{self.schema_name}.{self.feature_table_name}",
-            df=source_df,
-            mode="merge"
-        )
+        # Update Feature table
+        self.fs_wrapper.update_feature_table(df = source_df)
         
-        # Count updated records
-        count = source_df.count()
-        logger.info(f"Feature table updated with {count} records.")
+        return None
+    
+    def model_improved(self) -> bool:
+        """
+        Evaluate the model's performance on the test set.
         
-        return count
+        Parameters
+        ----------
+        test_set : pd.DataFrame
+            Test set to evaluate the model on
+        """     
+
+        # Check if latest model exists
+        # If so, load it and evaluate
+        # Compare with the current model
+        # If the new model is better, return True
+        # If the latest model doesnt exist, register the model
+
+
+        test_set = self.spark.table(f"{self.catalog_name}.{self.schema_name}.test_data")
+        test_set_df = test_set.toPandas()
+        logger.info("Evaluating model...")
+
+        try:
+            predictions_latest_model = self.mlflow_client.batch_score_with_feature_store(data=test_set.select(self.primary_keys + self.num_features + self.cat_features))
+            predictions_current_model = self.pipeline.predict(test_set_df[self.num_features + self.cat_features])
+
+            # Calculate metrics for both models
+            metrics_latest_model = ModelEvaluation.classification_metrics(
+                y_true=test_set_df[self.target],
+                y_pred=predictions_latest_model.select('prediction').toPandas().values.flatten(),
+            )
+            metrics_current_model = ModelEvaluation.classification_metrics(
+                y_true=test_set_df[self.target],
+                y_pred=predictions_current_model,
+            )
+            logger.info(f"Latest model metrics: {metrics_latest_model}")
+            logger.info(f"Current model metrics: {metrics_current_model}")
+            # Compare metrics
+            model_improved = False
+
+            if metrics_current_model["f1"] > metrics_latest_model["f1"]:
+                model_improved = True
+                logger.info("Current model is better than the latest model.")
+            else:
+                logger.info("Current model is not better than the latest model.")
+            return model_improved
+        
+        except Exception as e:
+            # Check if error indicates model doesn't exist
+            if "does not exist" in str(e):
+                logger.info(f"Model does not exist. Condition set to register it for the first time.")
+                model_improved = True
+                return model_improved
+
+
+    def register_model(self):
+        """
+        Register the model in the MLflow Model Registry.
+        """
+        logger.info("Registering model...")
+        
+        # Get the latest version of the model
+        latest_version = self.mlflow_client.register_model(artifact_path=self.model_name)
+        
+        logger.info(f"Model registered successfully with version: {latest_version}")
+        
+        return latest_version
+
 
  

@@ -22,6 +22,7 @@ class ProjectConfig(BaseModel):
     model_name: str
     parameters: dict
     endpoint_name: str
+    pipeline_id: str
 
     @classmethod
     def from_yaml(cls, config_path: str, env: str = None):

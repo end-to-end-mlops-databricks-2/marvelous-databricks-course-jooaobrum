@@ -92,8 +92,8 @@ workspace = WorkspaceClient()
 
 # write into feature table; update online table
 spark.sql(f"""
-    INSERT INTO {config.catalog_name}.{config.schema_name}.hotel_reservation_features
-    SELECT *`
+    INSERT INTO {config.catalog_name}.{config.schema_name}.hotel_reservation_fs
+    SELECT *
     FROM {config.catalog_name}.{config.schema_name}.inference_data_skewed
 """)
 

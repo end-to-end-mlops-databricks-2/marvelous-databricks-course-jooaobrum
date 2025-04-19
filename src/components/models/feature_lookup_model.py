@@ -164,12 +164,12 @@ class FeatureLookUpModel:
         self.mlflow_client.log_params(self.parameters)
 
         # 5. Train the model
-        self.pipeline .fit(self.X_train, self.y_train)
+        self.pipeline.fit(self.X_train, self.y_train)
         logger.info("Model training completed.")
 
         # 6. Evaluate the model
-        y_pred = self.pipeline .predict(self.X_test)
-        y_prob = self.pipeline .predict_proba(self.X_test)[:, 1]
+        y_pred = self.pipeline.predict(self.X_test)
+        y_prob = self.pipeline.predict_proba(self.X_test)[:, 1]
         
         # 7. Log metrics
         metrics = ModelEvaluation.classification_metrics(

@@ -168,6 +168,9 @@ class FeatureStoreWrapper:
             mode="merge"
         )
 
+        # Enable Change Data Feed (CDF) if not already enabled
+        self.spark.sql(f"ALTER TABLE {catalog}.{schema}.{table_name} SET TBLPROPERTIES (delta.enableChangeDataFeed = true)")
+
         # Count updated records
         count = spark_df.count()            
         logger.info(f"Feature table {feature_table_name} updated successfully with {count} records. ")

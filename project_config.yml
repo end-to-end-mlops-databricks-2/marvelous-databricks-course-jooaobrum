@@ -92,18 +92,17 @@ target:
 prod:
   catalog_name: uc_prod
   schema_name: hotel_reservation
-  pipeline_id: 035aefd6-0bdf-4d3c-9f62-aa96a5c56451
+  pipeline_id: 54c8f426-51cc-48c1-8ee1-4fff10f78078
   feature_table_name: hotel_reservation_fs
 qa:
   catalog_name: uc_qa
   schema_name: hotel_reservation
-  pipeline_id: 035aefd6-0bdf-4d3c-9f62-aa96a5c56451
+  pipeline_id: 54c8f426-51cc-48c1-8ee1-4fff10f78078
   feature_table_name: hotel_reservation_fs
-
 dev:
   catalog_name: uc_dev
   schema_name: hotel_reservation
-  pipeline_id: 035aefd6-0bdf-4d3c-9f62-aa96a5c56451
+  pipeline_id: 54c8f426-51cc-48c1-8ee1-4fff10f78078
   feature_table_name: hotel_reservation_fs
 
 

@@ -125,7 +125,7 @@ common:
 
 dev:
   experiment_name: "hotel_reservation_dev"
-  
+
 prod:
   experiment_name: "hotel_reservation_prod"
 ```

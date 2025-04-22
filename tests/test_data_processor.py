@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -22,15 +21,31 @@ def sample_data() -> pd.DataFrame:
 
 @pytest.fixture
 def config() -> ProjectConfig:
-    """Create a ProjectConfig instance for testing."""
+    """Create a ProjectConfig instance with dictionary-based features for testing."""
     return ProjectConfig(
         input_data="dummy_path.csv",
-        num_features=["num_feature1", "num_feature2"],
-        cat_features=["cat_feature1", "cat_feature2"],
-        target="booking_status",
+        num_features=[
+            {"name": "num_feature1", "alias": "num1", "dtype": "int32"},
+            {"name": "num_feature2", "alias": "num2", "dtype": "int32"},
+        ],
+        cat_features=[
+            {"name": "cat_feature1", "alias": "cat_feature1", "dtype": "category"},
+            {"name": "cat_feature2", "alias": "cat_feature2", "dtype": "category"},
+        ],
+        target={
+            "name": "booking_status",
+            "alias": "booking_status",
+            "dtype": "int32",
+            "mapping": {"Canceled": 1, "Not_Canceled": 0},
+        },
         parameters={"param1": "value1"},
         test_size=0.2,
         random_state=42,
+        endpoint_name="test-endpoint",
+        id_columns=["id"],
+        catalog_name="uc_test",
+        schema_name="hotel_reservation",
+        experiment_name="hotel_booking_test",
     )
 
 
@@ -40,54 +55,80 @@ def processor(sample_data, config) -> DataProcessor:
     return DataProcessor(sample_data.copy(), config)
 
 
-def test_treat_target(processor):
-    """Test target variable transformation."""
-    row_not_canceled = pd.Series({"booking_status": "Not_Canceled"})
-    row_canceled = pd.Series({"booking_status": "Canceled"})
+def test_validate_columns(processor):
+    """Test column validation."""
+    # This should pass without raising an exception
+    processor.validate_columns()
 
-    assert processor._treat_target(row_not_canceled) == 0
-    assert processor._treat_target(row_canceled) == 1
-
-
-def test_treat_num_features(processor):
-    """Test numeric features conversion."""
-    processor._treat_num_features()
-
-    for feature in processor.cfg.num_features:
-        # Check if dtype is numeric
-        assert pd.api.types.is_numeric_dtype(processor.data[feature])
-        # Check if individual values are numpy numeric types
-        assert isinstance(processor.data[feature].iloc[0], (np.integer, np.floating))
-        # Verify actual values
-        if feature == "num_feature1":
-            assert processor.data[feature].tolist() == [10, 20, 30]
-        elif feature == "num_feature2":
-            assert processor.data[feature].tolist() == [100, 200, 300]
+    # Test with missing column
+    processor.data = processor.data.drop(columns=["num_feature1"])
+    with pytest.raises(ValueError):
+        processor.validate_columns()
 
 
-def test_treat_cat_features(processor):
-    """Test categorical features conversion."""
-    processor._treat_cat_features()
+def test_rename_columns(processor, sample_data):
+    """Test column renaming when aliases differ from names."""
+    # First verify original column names
+    assert "num_feature1" in processor.data.columns
+    assert "num_feature2" in processor.data.columns
 
-    for feature in processor.cfg.cat_features:
-        assert processor.data[feature].dtype == object
-        assert isinstance(processor.data[feature].iloc[0], str)
+    # Apply renaming
+    processor.rename_columns()
+
+    # Check if columns were renamed
+    assert "num1" in processor.data.columns
+    assert "num2" in processor.data.columns
+    assert "cat_feature1" in processor.data.columns
+    assert "cat_feature2" in processor.data.columns
+    assert "booking_status" in processor.data.columns
+
+    # Check that original column names are gone (if your implementation drops them)
+    assert "num_feature1" not in processor.data.columns
+    assert "num_feature2" not in processor.data.columns
 
 
-def test_pre_processing(processor):
-    """Test complete preprocessing pipeline."""
-    processed_data = processor.pre_processing()
+def test_convert_datatypes(processor):
+    """Test data type conversion."""
+    # First rename columns
+    processor.rename_columns()
+    # Then convert data types
+    processor.convert_datatypes()
 
-    # Check if target was transformed
-    assert set(processed_data[processor.cfg.target].unique()) == {0, 1}
+    # Check numeric features are converted to integers (using aliases)
+    assert pd.api.types.is_integer_dtype(processor.data["num1"])
+    assert pd.api.types.is_integer_dtype(processor.data["num2"])
 
-    # Check numeric features
-    for feature in processor.cfg.num_features:
-        assert pd.api.types.is_numeric_dtype(processed_data[feature])
+    # Check categorical features are converted to category type
+    assert pd.api.types.is_categorical_dtype(processor.data["cat_feature1"])
+    assert pd.api.types.is_categorical_dtype(processor.data["cat_feature2"])
 
-    # Check categorical features
-    for feature in processor.cfg.cat_features:
-        assert processed_data[feature].dtype == object
+    # Check if values were correctly converted
+    assert processor.data["num1"].tolist() == [10, 20, 30]
+    assert processor.data["num2"].tolist() == [100, 200, 300]
+
+    # Check if target was mapped correctly
+    assert processor.data["booking_status"].tolist() == [0, 1, 0]
+
+
+def test_check_null_values(processor):
+    """Test null value detection."""
+    # Test with no nulls
+    processor.check_null_values(raise_error=False)
+
+    # Test with nulls
+    processor.data.loc[0, "num_feature1"] = None
+    processor.data.loc[1, "cat_feature1"] = None
+
+    # Should not raise error because less than 25% nulls
+    processor.check_null_values(raise_error=False)
+
+    # Now introduce enough nulls to cross the threshold
+    for i in range(3):
+        processor.data.loc[i, "num_feature2"] = None
+
+    # This should raise an error due to high percentage of nulls
+    with pytest.raises(ValueError):
+        processor.check_null_values(raise_error=True)
 
 
 def test_split_data(processor):
@@ -100,9 +141,8 @@ def test_split_data(processor):
     assert isinstance(test, pd.DataFrame)
 
     # Check split sizes
-    assert len(test) < len(train)
+    assert len(train) == 2  # With 3 rows and 0.2 test_size, train should have 2 rows
+    assert len(test) == 1  # With 3 rows and 0.2 test_size, test should have 1 row
 
-
-def test_save_train_test(processor, sample_data):
-    """Test saving train and test data."""
-    pass
+    # Check if the data was correctly split
+    assert set(train.index).isdisjoint(set(test.index))

@@ -6,17 +6,23 @@ from pydantic import BaseModel
 
 class ProjectConfig(BaseModel):
     input_data: str
+    primary_keys: List[str]
     test_size: float
     random_state: int
-    id_columns: List[str]
-    num_features: List[str]
-    cat_features: List[str]
-    target: str
+    numeric_strategy: str
+    categorical_strategy: str
+    missing_strategy: str
+    num_features: List[dict]
+    cat_features: List[dict]
+    target: dict
     catalog_name: str
     schema_name: str
+    feature_table_name: str
     experiment_name: str
+    model_name: str
     parameters: dict
     endpoint_name: str
+    pipeline_id: str
 
     @classmethod
     def from_yaml(cls, config_path: str, env: str = None):
@@ -28,10 +34,12 @@ class ProjectConfig(BaseModel):
             config_dict["catalog_name"] = config_dict[env]["catalog_name"]
             config_dict["schema_name"] = config_dict[env]["schema_name"]
             config_dict["pipeline_id"] = config_dict[env]["pipeline_id"]
+            config_dict["feature_table_name"] = config_dict[env]["feature_table_name"]
         else:
             config_dict["catalog_name"] = config_dict["catalog_name"]
             config_dict["schema_name"] = config_dict["schema_name"]
             config_dict["pipeline_id"] = config_dict["pipeline_id"]
+            config_dict["feature_table_name"] = config_dict[env]["feature_table_name"]
 
         return cls(**config_dict)
 

@@ -1,5 +1,5 @@
 # Databricks notebook source
-# !pip install house_price-1.1.3-py3-none-any.whl
+#%pip install /Volumes/uc_dev/hotel_reservation/samples/packages/hotel_reservation-latest-py3-none-any.whl
 
 # COMMAND ----------
 
@@ -92,8 +92,8 @@ workspace = WorkspaceClient()
 
 # write into feature table; update online table
 spark.sql(f"""
-    INSERT INTO {config.catalog_name}.{config.schema_name}.hotel_reservation_features
-    SELECT *`
+    INSERT INTO {config.catalog_name}.{config.schema_name}.hotel_reservation_fs
+    SELECT *
     FROM {config.catalog_name}.{config.schema_name}.inference_data_skewed
 """)
 
@@ -263,3 +263,5 @@ workspace = WorkspaceClient()
 config = ProjectConfig.from_yaml(config_path="../project_config.yml", env="dev")
 
 create_or_refresh_monitoring(config=config, spark=spark, workspace=workspace)
+
+# COMMAND ----------

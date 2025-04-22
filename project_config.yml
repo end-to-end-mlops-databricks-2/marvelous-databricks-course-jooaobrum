@@ -1,59 +1,110 @@
 # Input Data
 input_data : '/Volumes/uc_dev/hotel_reservation/samples/hotel_reservations.csv'
 
+# Primary Keys
+primary_keys:
+  - Booking_ID
+
 # Mlflow Config
 experiment_name: /Shared/hotel-reservations
+model_name: lightgbm-pipeline-model-fe
 
 # Data Preprocessing Config
 test_size: 0.2
 random_state: 42
 
 # Model Config
+numeric_strategy: standard
+categorical_strategy: onehot
+missing_strategy: mean
 parameters:
   random_state: 42
   n_estimators: 300
   max_depth: 6
   learning_rate: 0.01
 
-id_columns:
-  - Booking_ID
-
+# Features with name, alias, and dtype
 num_features:
-  - no_of_adults
-  - no_of_children
-  - no_of_weekend_nights
-  - no_of_week_nights
-  - required_car_parking_space
-  - lead_time
-  - arrival_year
-  - arrival_month
-  - arrival_date
-  - repeated_guest
-  - no_of_previous_cancellations
-  - no_of_previous_bookings_not_canceled
-  - avg_price_per_room
-  - no_of_special_requests
+  - name: no_of_adults
+    alias: no_of_adults
+    dtype: int16
+  - name: no_of_children
+    alias: no_of_children
+    dtype: int16
+  - name: no_of_weekend_nights
+    alias: no_of_weekend_nights
+    dtype: int16
+  - name: no_of_week_nights
+    alias: no_of_week_nights
+    dtype: int16
+  - name: required_car_parking_space
+    alias: required_car_parking_space
+    dtype: int16
+  - name: lead_time
+    alias: lead_time
+    dtype: int16
+  - name: arrival_year
+    alias: arrival_year
+    dtype: int16
+  - name: arrival_month
+    alias: arrival_month
+    dtype: int16
+  - name: arrival_date
+    alias: arrival_date
+    dtype: int16
+  - name: repeated_guest
+    alias: repeated_guest
+    dtype: int16
+  - name: no_of_previous_cancellations
+    alias: no_of_previous_cancellations
+    dtype: int16
+  - name: no_of_previous_bookings_not_canceled
+    alias: no_of_previous_bookings_not_canceled
+    dtype: int16
+  - name: avg_price_per_room
+    alias: avg_price_per_room
+    dtype: float64
+  - name: no_of_special_requests
+    alias: no_of_special_requests
+    dtype: int16
 
 cat_features:
-  - type_of_meal_plan
-  - room_type_reserved
-  - market_segment_type
+  - name: type_of_meal_plan
+    alias: type_of_meal_plan
+    dtype: category
+  - name: room_type_reserved
+    alias: room_type_reserved
+    dtype: category
+  - name: market_segment_type
+    alias: market_segment_type
+    dtype: category
 
-target: booking_status
+target:
+  name: booking_status
+  alias: booking_status
+  dtype: int
+  mapping:
+    "Canceled": 1
+    "Not_Canceled": 0
+
 
 # Catalog
 prod:
   catalog_name: uc_prod
   schema_name: hotel_reservation
-  pipeline_id: 035aefd6-0bdf-4d3c-9f62-aa96a5c56451
+  pipeline_id: 54c8f426-51cc-48c1-8ee1-4fff10f78078
+  feature_table_name: hotel_reservation_fs
 qa:
   catalog_name: uc_qa
   schema_name: hotel_reservation
-  pipeline_id: 035aefd6-0bdf-4d3c-9f62-aa96a5c56451
+  pipeline_id: 54c8f426-51cc-48c1-8ee1-4fff10f78078
+  feature_table_name: hotel_reservation_fs
 dev:
   catalog_name: uc_dev
   schema_name: hotel_reservation
-  pipeline_id: 035aefd6-0bdf-4d3c-9f62-aa96a5c56451
+  pipeline_id: 54c8f426-51cc-48c1-8ee1-4fff10f78078
+  feature_table_name: hotel_reservation_fs
+
 
 # Endpoint
 endpoint_name: hotel-reservation-model-serving-fe

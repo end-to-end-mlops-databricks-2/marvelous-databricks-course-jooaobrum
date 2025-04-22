@@ -1,5 +1,4 @@
-from typing import Any, Optional
-
+from typing import Dict, List, Optional, Tuple, Union, Callable, Any
 import numpy as np
 import pandas as pd
 from loguru import logger
@@ -215,16 +214,16 @@ class DataProcessor:
             logger.info("No null values found in the dataset.")
 
         return self
-
+    
     def apply_custom_transformations(self, optional_custom_processor: Any) -> "DataProcessor":
         """
         Apply custom transformations using a provided CustomProcessing instance.
-
+        
         Parameters
         ----------
         custom_processor : Any
             An instance of a custom processing class that has an apply_transformations method
-
+            
         Returns
         -------
         DataProcessor
@@ -235,7 +234,7 @@ class DataProcessor:
         logger.info("Applying custom transformations")
         transformed_data = optional_custom_processor.apply_transformations(self.data)
         logger.info("Custom transformations completed")
-
+            
         return transformed_data
 
     def pre_processing(self, optional_custom_processor: Optional[Any] = None) -> pd.DataFrame:
@@ -274,14 +273,10 @@ class DataProcessor:
 
         # Apply custom transformations if a processor is provided
         if optional_custom_processor is not None:
-            if hasattr(optional_custom_processor, "apply_transformations") and callable(
-                optional_custom_processor.apply_transformations
-            ):
+            if hasattr(optional_custom_processor, 'apply_transformations') and callable(optional_custom_processor.apply_transformations):
                 self.apply_custom_transformations(optional_custom_processor)
             else:
-                logger.warning(
-                    "Custom processor provided but doesn't have an apply_transformations method. Skipping custom processing."
-                )
+                logger.warning("Custom processor provided but doesn't have an apply_transformations method. Skipping custom processing.")
 
         # Check for null values
         self.check_null_values()

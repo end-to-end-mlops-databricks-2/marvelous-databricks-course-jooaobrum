@@ -1,5 +1,5 @@
 # Databricks notebook source
-#!pip install /Volumes/uc_dev/hotel_reservation/samples/packages/hotel_reservations-latest-py3-none-any.whl
+#%pip install /Volumes/uc_dev/hotel_reservation/samples/packages/hotel_reservation-latest-py3-none-any.whl
 
 # COMMAND ----------
 
@@ -263,3 +263,5 @@ workspace = WorkspaceClient()
 config = ProjectConfig.from_yaml(config_path="../project_config.yml", env="dev")
 
 create_or_refresh_monitoring(config=config, spark=spark, workspace=workspace)
+
+# COMMAND ----------

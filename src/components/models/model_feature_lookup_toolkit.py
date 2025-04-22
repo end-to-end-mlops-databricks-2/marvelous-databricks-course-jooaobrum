@@ -1,30 +1,31 @@
-from loguru import logger
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Optional, Union
+
 import pandas as pd
+from databricks.feature_engineering import FeatureEngineeringClient, FeatureLookup
+from loguru import logger
 from pyspark.sql import DataFrame as SparkDataFrame
 from pyspark.sql import SparkSession
-from databricks.feature_engineering import FeatureEngineeringClient, FeatureLookup
 
 
 class FeatureStoreWrapper:
     """
     Wrapper class for Databricks Feature Store operations.
-    
+
     This class simplifies working with the Databricks Feature Store by providing
     convenient methods for common operations like creating and updating feature tables,
     performing feature lookups, and integrating with MLflow.
     """
-    
+
     def __init__(
         self,
         spark: Optional[SparkSession] = None,
         catalog: Optional[str] = None,
         schema: Optional[str] = None,
-        table_name: Optional[str] = None
+        table_name: Optional[str] = None,
     ):
         """
         Initialize the Feature Store wrapper.
-        
+
         Parameters
         ----------
         spark : SparkSession, optional
@@ -34,7 +35,7 @@ class FeatureStoreWrapper:
         schema : str, optional
             Default schema to use for feature tables
         """
-       
+
         # Store configuration
         self.catalog = catalog
         self.schema = schema
@@ -42,13 +43,12 @@ class FeatureStoreWrapper:
 
         # Initialize Spark session if not provided
         self.spark = spark or SparkSession.builder.getOrCreate()
-        
+
         # Initialize Feature Store client
         self.fs = FeatureEngineeringClient()
-        
+
         logger.info(f"Feature Store wrapper initialized. Catalog: {catalog}, Schema: {schema}, Table: {table_name}")
-    
-    
+
     def create_feature_table(
         self,
         df: Union[pd.DataFrame, SparkDataFrame],
@@ -59,11 +59,11 @@ class FeatureStoreWrapper:
         description: Optional[str] = None,
         partition_columns: Optional[List[str]] = None,
         mode: str = "overwrite",
-        tags: Optional[Dict[str, str]] = None
+        tags: Optional[Dict[str, str]] = None,
     ) -> None:
         """
         Create or update a feature table with the provided data.
-        
+
         Parameters
         ----------
         df : DataFrame or SparkDataFrame
@@ -89,18 +89,18 @@ class FeatureStoreWrapper:
         schema = schema or self.schema
         catalog = catalog or self.catalog
         table_name = table_name or self.table_name
-        
+
         feature_table_name = f"{catalog}.{schema}.{table_name}"
-      
+
         # Convert pandas DataFrame to Spark if needed
         if isinstance(df, pd.DataFrame):
             spark_df = self.spark.createDataFrame(df)
         else:
             spark_df = df
-            
+
         # Create or update feature table
         logger.info(f"Creating/updating feature table: {feature_table_name}")
-        
+
         # Delete if exists and using overwrite mode
         if mode == "overwrite":
             try:
@@ -110,7 +110,7 @@ class FeatureStoreWrapper:
                 self.fs.drop_table(name=feature_table_name)
             except Exception as e:
                 logger.info(f"Feature table doesn't exist or couldn't be deleted: {e}")
-        
+
         # Create the feature table
         self.fs.create_table(
             name=feature_table_name,
@@ -118,21 +118,21 @@ class FeatureStoreWrapper:
             df=spark_df,
             description=description,
             partition_columns=partition_columns,
-            tags=tags
+            tags=tags,
         )
-        
+
         logger.info(f"Feature table {feature_table_name} created/updated successfully")
-    
+
     def update_feature_table(
         self,
         df: Union[pd.DataFrame, SparkDataFrame],
         schema: Optional[str] = None,
         catalog: Optional[str] = None,
-        table_name: Optional[str] = None
+        table_name: Optional[str] = None,
     ) -> None:
         """
         Update an existing feature table with new data.
-        
+
         Parameters
         ----------
         df : DataFrame or SparkDataFrame
@@ -150,32 +150,28 @@ class FeatureStoreWrapper:
         schema = schema or self.schema
         catalog = catalog or self.catalog
         table_name = table_name or self.table_name
-       
+
         feature_table_name = f"{catalog}.{schema}.{table_name}"
-        
+
         # Convert pandas DataFrame to Spark if needed
         if isinstance(df, pd.DataFrame):
             spark_df = self.spark.createDataFrame(df)
         else:
             spark_df = df
-            
+
         # Write to feature table
         logger.info(f"Updating feature table: {feature_table_name}")
-        
-        self.fs.write_table(
-            name=feature_table_name,
-            df=spark_df,
-            mode="merge"
-        )
+
+        self.fs.write_table(name=feature_table_name, df=spark_df, mode="merge")
 
         # Enable Change Data Feed (CDF) if not already enabled
-        self.spark.sql(f"ALTER TABLE {catalog}.{schema}.{table_name} SET TBLPROPERTIES (delta.enableChangeDataFeed = true)")
+        self.spark.sql(
+            f"ALTER TABLE {catalog}.{schema}.{table_name} SET TBLPROPERTIES (delta.enableChangeDataFeed = true)"
+        )
 
         # Count updated records
-        count = spark_df.count()            
+        count = spark_df.count()
         logger.info(f"Feature table {feature_table_name} updated successfully with {count} records. ")
-    
-    
 
     def create_training_set_with_lookups(
         self,
@@ -187,11 +183,11 @@ class FeatureStoreWrapper:
         table_name: Optional[str] = None,
         label: Optional[str] = None,
         exclude_columns: Optional[List[str]] = None,
-        timestamp_lookup_key: Optional[str] = None
+        timestamp_lookup_key: Optional[str] = None,
     ) -> SparkDataFrame:
         """
         Create feature lookups and a training set in a single operation.
-        
+
         Parameters
         ----------
         df : DataFrame or SparkDataFrame
@@ -222,10 +218,9 @@ class FeatureStoreWrapper:
         schema = schema or self.schema
         catalog = catalog or self.catalog
         table_name = table_name or self.table_name
-        
 
         feature_table_name = f"{catalog}.{schema}.{table_name}"
-        
+
         # Create feature lookups
         feature_lookups = []
         for feature in features:
@@ -234,30 +229,27 @@ class FeatureStoreWrapper:
                 table_name=feature_table_name,
                 feature_names=[feature],
                 lookup_key=lookup_key,
-                timestamp_lookup_key=timestamp_lookup_key
+                timestamp_lookup_key=timestamp_lookup_key,
             )
             feature_lookups.append(feature_lookup)
-        
+
         logger.info(f"Created {len(feature_lookups)} feature lookups for table {feature_table_name}")
-        
+
         # Convert pandas DataFrame to Spark if needed
         if isinstance(df, pd.DataFrame):
             spark_df = self.spark.createDataFrame(df)
         else:
             spark_df = df
-        
+
         # Create training set
         logger.info(f"Creating training set with {len(feature_lookups)} feature lookups")
-        
+
         training_set = self.fs.create_training_set(
-            df=spark_df,
-            feature_lookups=feature_lookups,
-            label=label,
-            exclude_columns=exclude_columns
+            df=spark_df, feature_lookups=feature_lookups, label=label, exclude_columns=exclude_columns
         )
-        
+
         # Load the training set
         training_df = training_set.load_df()
         logger.info(f"Training set created with {training_df.count()} rows and {len(training_df.columns)} columns")
-        
+
         return training_df, training_set

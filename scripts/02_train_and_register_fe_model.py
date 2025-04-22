@@ -1,8 +1,10 @@
 import argparse
-import yaml
+
 import mlflow
-from pyspark.sql import SparkSession
+import yaml
 from loguru import logger
+from pyspark.sql import SparkSession
+
 from components.config import ProjectConfig, Tags
 from components.models.feature_lookup_model import FeatureLookUpModel
 
@@ -28,7 +30,7 @@ mlflow.set_registry_uri("databricks-uc")
 tags_dict = {
     "git_sha": args.git_sha if args.git_sha else "abcd12345",
     "branch": args.branch,
-    "job_run_id": args.job_run_id
+    "job_run_id": args.job_run_id,
 }
 tags = Tags(**tags_dict)
 
@@ -71,4 +73,3 @@ if fe_model.model_improved():
 else:
     logger.info("Model did not improve. Keeping existing model.")
     dbutils.jobs.taskValues.set(key="model_updated", value=0)
-

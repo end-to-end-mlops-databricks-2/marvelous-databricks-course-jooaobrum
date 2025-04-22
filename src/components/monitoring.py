@@ -9,9 +9,7 @@ from pyspark.sql.types import ArrayType, DoubleType, IntegerType, StringType, St
 
 
 def create_or_refresh_monitoring(config, spark, workspace, table_inference_payload):
-    inf_table = spark.sql(
-        f"SELECT * FROM {config.catalog_name}.{config.schema_name}.{table_inference_payload}"
-    )
+    inf_table = spark.sql(f"SELECT * FROM {config.catalog_name}.{config.schema_name}.{table_inference_payload}")
 
     request_schema = StructType(
         [

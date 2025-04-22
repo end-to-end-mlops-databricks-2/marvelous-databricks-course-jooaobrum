@@ -6,18 +6,24 @@ from databricks.sdk.service.catalog import (
     OnlineTableSpec,
     OnlineTableSpecTriggeredSchedulingPolicy,
 )
-from databricks.sdk.service.serving import EndpointCoreConfigInput, ServedEntityInput, AutoCaptureConfigInput
-
+from databricks.sdk.service.serving import AutoCaptureConfigInput, EndpointCoreConfigInput, ServedEntityInput
 from loguru import logger
-import pandas as pd
-
 
 mlflow.set_tracking_uri("databricks")
 mlflow.set_registry_uri("databricks-uc")
 
 
 class FeatureLookupServing:
-    def __init__(self, model_name: str, endpoint_name: str, catalog_name: str, schema_name: str, feature_table_name: str, primary_keys: list = None, alias: str = 'latest-model'):
+    def __init__(
+        self,
+        model_name: str,
+        endpoint_name: str,
+        catalog_name: str,
+        schema_name: str,
+        feature_table_name: str,
+        primary_keys: list = None,
+        alias: str = "latest-model",
+    ):
         """
         Initializes the Feature Lookup Serving Manager.
         """
@@ -32,12 +38,10 @@ class FeatureLookupServing:
         self.alias = alias
         self.endpoint_name = endpoint_name
 
-
     def create_online_table(self):
         """
         Creates an online table for house features.
         """
-
 
         full_feature_table_name = f"{self.catalog_name}.{self.schema_name}.{self.feature_table_name}"
         logger.info(f"Creating online table: {self.online_table_name} for feature table: {full_feature_table_name}")
@@ -59,8 +63,12 @@ class FeatureLookupServing:
         return latest_version
 
     def deploy_or_update_serving_endpoint(
-        self, version: str = "latest", workload_size: str = "Small", scale_to_zero: bool = True
-    , enable_inference_tables: bool = True):
+        self,
+        version: str = "latest",
+        workload_size: str = "Small",
+        scale_to_zero: bool = True,
+        enable_inference_tables: bool = True,
+    ):
         """
         Deploys the model serving endpoint in Databricks.
         :param version: str. Version of the model to deploy
@@ -78,11 +86,11 @@ class FeatureLookupServing:
 
         if enable_inference_tables:
             auto_capture_config = AutoCaptureConfigInput(
-                    catalog_name=inference_table_name.split('.')[0],
-                    schema_name=inference_table_name.split('.')[1],
-                    table_name_prefix=inference_table_name.split('.')[2],
-                    enabled=True
-                )
+                catalog_name=inference_table_name.split(".")[0],
+                schema_name=inference_table_name.split(".")[1],
+                table_name_prefix=inference_table_name.split(".")[2],
+                enabled=True,
+            )
 
         served_entities = [
             ServedEntityInput(
@@ -99,15 +107,17 @@ class FeatureLookupServing:
                 name=self.endpoint_name,
                 config=EndpointCoreConfigInput(
                     served_entities=served_entities,
-                    
                 ),
-                
             )
 
         else:
             logger.info(f"Updating endpoint: {self.endpoint_name}")
-            self.workspace.tables.delete(full_name=f"{self.catalog_name}.{self.schema_name}.{self.endpoint_name}_inference_payload")
-            self.workspace.serving_endpoints.update_config(name=self.endpoint_name, auto_capture_config=auto_capture_config, served_entities=served_entities)
+            self.workspace.tables.delete(
+                full_name=f"{self.catalog_name}.{self.schema_name}.{self.endpoint_name}_inference_payload"
+            )
+            self.workspace.serving_endpoints.update_config(
+                name=self.endpoint_name, auto_capture_config=auto_capture_config, served_entities=served_entities
+            )
 
     def update_online_table(self, pipeline_id: str):
         """
@@ -135,21 +145,20 @@ class FeatureLookupServing:
 
             time.sleep(30)
 
-
     def get_endpoint_status(self):
         """
         Get the current status of the model serving endpoint.
-        
+
         Returns:
             dict: A dictionary containing status information about the endpoint
         """
         try:
             endpoint = self.workspace.serving_endpoints.get(name=self.endpoint_name)
-            
+
             # Extract relevant status information
             status_info = {
                 "name": endpoint.name,
-                "state": str(endpoint.state) if hasattr(endpoint, 'state') else None,
+                "state": str(endpoint.state) if hasattr(endpoint, "state") else None,
                 "creator": endpoint.creator,
                 "creation_timestamp": endpoint.creation_timestamp,
                 "last_updated_timestamp": endpoint.last_updated_timestamp,
@@ -160,32 +169,33 @@ class FeatureLookupServing:
                             "entity_name": entity.entity_name,
                             "entity_version": entity.entity_version,
                             "workload_size": entity.workload_size,
-                            "scale_to_zero_enabled": entity.scale_to_zero_enabled
+                            "scale_to_zero_enabled": entity.scale_to_zero_enabled,
                         }
                         for entity in endpoint.config.served_entities
-                    ] if endpoint.config and endpoint.config.served_entities else []
-                }
+                    ]
+                    if endpoint.config and endpoint.config.served_entities
+                    else []
+                },
             }
-            
+
             # Get endpoint metrics if available
             try:
                 metrics = self.workspace.serving_endpoints.get_metrics(
                     name=self.endpoint_name,
                     start_timestamp_ms=int((time.time() - 3600) * 1000),  # Last hour
-                    end_timestamp_ms=int(time.time() * 1000)
+                    end_timestamp_ms=int(time.time() * 1000),
                 )
                 status_info["metrics"] = {
                     "request_count": metrics.metrics.get("requests", {}).get("count", 0),
                     "avg_response_time": metrics.metrics.get("response_time", {}).get("avg", 0),
-                    "p99_response_time": metrics.metrics.get("response_time", {}).get("p99", 0)
+                    "p99_response_time": metrics.metrics.get("response_time", {}).get("p99", 0),
                 }
             except Exception as e:
                 logger.warning(f"Could not retrieve endpoint metrics: {str(e)}")
                 status_info["metrics"] = "Not available"
-            
+
             return status_info
-            
+
         except Exception as e:
             logger.error(f"Error getting endpoint status: {str(e)}")
             return {"error": str(e), "status": "Not available"}
-    

@@ -26,7 +26,7 @@ parser.add_argument(
 args = parser.parse_args()
 root_path = args.root_path
 config_path = f"{root_path}/files/project_config.yml"
-inference_table = '`hotel-reservation-model-serving-fe_inference_payload`'
+inference_table = "`hotel-reservation-model-serving-fe_inference_payload`"
 
 
 # Load configuration

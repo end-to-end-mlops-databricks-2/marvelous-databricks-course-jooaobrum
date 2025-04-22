@@ -1,11 +1,13 @@
 import argparse
+
 import yaml
 from loguru import logger
+
 from components.config import ProjectConfig
 from components.data_processor import DataProcessor, generate_synthetic_data
 from components.data_reader import DataReader
-from components.data_writer import DataWriter
 from components.data_split import DataSplitter
+from components.data_writer import DataWriter
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser()

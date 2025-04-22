@@ -1,7 +1,9 @@
 import argparse
+
 from loguru import logger
 from pyspark.dbutils import DBUtils
 from pyspark.sql import SparkSession
+
 from components.config import ProjectConfig
 from components.serving.fe_online_model_serving import FeatureLookupServing
 
@@ -23,7 +25,7 @@ dbutils = DBUtils(spark)
 # Get model version from upstream task
 try:
     model_version = dbutils.jobs.taskValues.get(taskKey="train_model", key="model_version")
-except:
+except Exception:
     logger.warning("Could not retrieve model version from upstream task. Using 'latest'.")
     model_version = "latest"  # Fallback when not in a workflow
 
@@ -50,7 +52,7 @@ feature_model_server = FeatureLookupServing(
     feature_table_name=feature_table_name,
     primary_keys=primary_keys,
     model_name=model_name,
-    endpoint_name=endpoint_name
+    endpoint_name=endpoint_name,
 )
 logger.info("Feature lookup serving manager initialized.")
 
@@ -65,4 +67,3 @@ logger.info("Started deployment/update of the serving endpoint")
 # Verify endpoint status
 endpoint_status = feature_model_server.get_endpoint_status()
 logger.info(f"Endpoint status: {endpoint_status}")
-

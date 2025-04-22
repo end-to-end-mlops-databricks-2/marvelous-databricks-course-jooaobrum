@@ -46,7 +46,7 @@ Tools for building standardized ML pipelines:
 
 ### Data Workflow
 
-1. **Data Preparation**: 
+1. **Data Preparation**:
    - Reads data from Databricks tables
    - Supports feature creation and preprocessing
    - Creates and updates feature tables in the Feature Store
